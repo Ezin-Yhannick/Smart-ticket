@@ -1,0 +1,66 @@
+name: SQR_Code
+description: Application de billetterie sécurisée par QR Code
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- Navigation ---
+  # go_router : gère les pages et redirige selon le rôle (Super-Admin, Admin, Agent)
+  go_router: ^13.2.0
+
+  # --- Gestion d'état ---
+  # flutter_riverpod : remplace setState(), permet de partager des données entre écrans
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  http: ^1.2.1
+  # --- Appels API (communication avec le backend Spring Boot) ---
+  # dio : envoie des requêtes HTTP (GET, POST, etc.) au serveur
+  dio: ^5.4.3+1
+
+  open_filex: ^4.3.4
+  path_provider: ^2.1.2
+
+  # --- Stockage sécurisé ---
+  # flutter_secure_storage : stocke le token JWT de façon sécurisée sur le téléphone
+  flutter_secure_storage: ^9.2.2
+
+  # --- QR Code ---
+  # mobile_scanner : utilise la caméra pour scanner les QR codes (interface Agent)
+  mobile_scanner: ^5.2.3
+  # qr_flutter : affiche/génère un QR code à l'écran (interface Admin)
+  qr_flutter: ^4.1.0
+
+  # --- Utilitaires ---
+  # intl : formate les dates, nombres, montants (ex: "1 200 FCFA", "12 janv. 2025")
+  intl: ^0.19.0
+  # gap : ajoute facilement des espaces entre les widgets (Gap(16) au lieu de SizedBox)
+  gap: ^3.0.1
+  # cached_network_image : charge les images depuis internet avec cache
+  cached_network_image: ^3.3.1
+
+  # Icônes Flutter de base
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Ces packages aident à générer du code automatiquement (on en aura besoin plus tard)
+  build_runner: ^2.4.9
+  riverpod_generator: ^2.4.0
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Dossier pour les images, fonts, etc.
+  assets:
+    - assets/images/
+    - assets/icons/
