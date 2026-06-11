@@ -5,243 +5,227 @@
 //
 // Note : ce fichier utilise "part of" pour être lié au shell.
 // C'est une façon de découper un gros fichier en plusieurs morceaux.
-
 part of 'super_admin_shell.dart';
 
-class SuperAdminDashboardScreen extends ConsumerWidget {
+class SuperAdminDashboardScreen extends ConsumerStatefulWidget {
   const SuperAdminDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Données de démonstration (seront remplacées par de vraies données API)
-    final recentAdmins = [
-      AdminModel(
-        id: '1',
-        name: 'ASSOUMA Kamal',
-        email: 'k.assouma@epac.bj',
-        status: AdminStatus.active,
-        eventsCount: 12,
-        ticketsCount: 847,
-        revenue: 1200000,
-      ),
-      AdminModel(
-        id: '2',
-        name: 'SONON Jehovas-nis',
-        email: 's.jehovas@epac.bj',
-        status: AdminStatus.active,
-        eventsCount: 8,
-        ticketsCount: 0,
-        revenue: 890000,
-      ),
-      AdminModel(
-        id: '3',
-        name: 'EDOH Maxim',
-        email: 'm.edoh@concert.bj',
-        status: AdminStatus.pending,
-        eventsCount: 0,
-        ticketsCount: 0,
-        revenue: 0,
-      ),
-    ];
+  ConsumerState<SuperAdminDashboardScreen> createState() =>
+      _SuperAdminDashboardScreenState();
+}
 
+class _SuperAdminDashboardScreenState
+    extends ConsumerState<SuperAdminDashboardScreen> {
+
+  Map<String, dynamic>? _stats;
+  List<AdminModel> _recentAdmins = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() { _isLoading = true; _error = null; });
+    try {
+      final token = ref.read(authStateProvider).token!;
+      final stats  = await ApiService.getPlatformStats(token);
+      final admins = await ApiService.getAllAdmins(token);
+
+      setState(() {
+        _stats = stats;
+        _recentAdmins = admins.take(3).map((a) => AdminModel(
+          id: a['id'].toString(),
+          name: a['name'],
+          email: a['email'],
+          status: a['status'] == 'ACTIVE'
+              ? AdminStatus.active
+              : AdminStatus.suspended,
+          eventsCount: a['totalEvents'] ?? 0,
+          ticketsCount: a['totalTickets'] ?? 0,
+          revenue: 0,
+        )).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString().replaceAll('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // --- App Bar personnalisée ---
-            SliverToBoxAdapter(
-              child: _buildAppBar(context, ref),
-            ),
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          color: AppColors.primary,
+          child: CustomScrollView(
+            slivers: [
+              // AppBar
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Row(children: [
+                    Container(
+                      width: 34, height: 34,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.grid_view_rounded,
+                          color: Colors.white, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text('Smart-Ticket',
+                        style: AppTextStyles.appBarTitle),
+                    const Spacer(),
+                    const ProfileMenu(),
+                  ]),
+                ),
+              ),
 
-            // --- Section "Vue d'ensemble" + cartes de stats ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Vue d\'ensemble',
-                        style: AppTextStyles.sectionTitle),
-                    const SizedBox(height: 16),
-
-                    // Grille 2x2 de cartes de stats
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      // shrinkWrap + NeverScrollableScrollPhysics permet
-                      // d'intégrer un GridView dans un ScrollView parent
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 0.85,
-                      children: const [
-                        StatCard(
-                          icon: Icons.people_outline_rounded,
-                          iconColor: AppColors.iconBlue,
-                          iconBackground: AppColors.iconBlueBackground,
-                          value: '24',
-                          label: 'Admins actifs',
-                          trend: '+3 ce mois',
-                          trendColor: AppColors.statusActive,
-                        ),
-                        StatCard(
-                          icon: Icons.calendar_month_outlined,
-                          iconColor: AppColors.iconGreen,
-                          iconBackground: AppColors.iconGreenBackground,
-                          value: '138',
-                          label: 'Événements',
-                          trend: '+12 ce mois',
-                          trendColor: AppColors.statusActive,
-                        ),
-                        StatCard(
-                          icon: Icons.attach_money_rounded,
-                          iconColor: AppColors.iconOrange,
-                          iconBackground: AppColors.iconOrangeBackground,
-                          value: '4,2M',
-                          label: 'Transactions',
-                          trend: 'FCFA',
-                          trendColor: AppColors.statusPending,
-                        ),
-                        StatCard(
-                          icon: Icons.warning_amber_rounded,
-                          iconColor: AppColors.iconRed,
-                          iconBackground: AppColors.iconRedBackground,
-                          value: '7',
-                          label: 'Alertes fraude',
-                          trend: 'Cette sem.',
-                          trendColor: AppColors.statusSuspended,
+              if (_isLoading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_error != null)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.wifi_off_rounded,
+                            color: AppColors.textTertiary, size: 48),
+                        const SizedBox(height: 12),
+                        Text(_error!,
+                            style: AppTextStyles.adminSubtitle),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadData,
+                          child: const Text('Réessayer'),
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            // --- Section "Admins récents" ---
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Admins récents',
-                        style: AppTextStyles.sectionTitle),
-                    // Bouton "Voir tous" → navigue vers l'onglet Admins
-                    TextButton(
-                      onPressed: () => context.go('/super-admin/admins'),
-                      child: const Text(
-                        'Voir tous',
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
+                  ),
+                )
+              else ...[
+                  // Stats
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Vue d\'ensemble',
+                              style: AppTextStyles.sectionTitle),
+                          const SizedBox(height: 16),
+                          GridView.count(
+                            crossAxisCount: 2,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.85,
+                            children: [
+                              StatCard(
+                                icon: Icons.people_outline_rounded,
+                                iconColor: AppColors.iconBlue,
+                                iconBackground: AppColors.iconBlueBackground,
+                                value: '${_stats!['activeAdmins'] ?? 0}',
+                                label: 'Admins actifs',
+                                trend: '${_stats!['totalAdmins'] ?? 0} total',
+                                trendColor: AppColors.statusActive,
+                              ),
+                              StatCard(
+                                icon: Icons.calendar_month_outlined,
+                                iconColor: AppColors.iconGreen,
+                                iconBackground: AppColors.iconGreenBackground,
+                                value: '${_stats!['totalEvents'] ?? 0}',
+                                label: 'Événements',
+                                trend: 'Sur la plateforme',
+                                trendColor: AppColors.statusActive,
+                              ),
+                              StatCard(
+                                icon: Icons.confirmation_number_outlined,
+                                iconColor: AppColors.iconOrange,
+                                iconBackground: AppColors.iconOrangeBackground,
+                                value: '${_stats!['totalSold'] ?? 0}',
+                                label: 'Tickets vendus',
+                                trend:
+                                '${_stats!['totalTickets'] ?? 0} générés',
+                                trendColor: AppColors.statusPending,
+                              ),
+                              StatCard(
+                                icon: Icons.how_to_reg_outlined,
+                                iconColor: AppColors.iconRed,
+                                iconBackground: AppColors.iconRedBackground,
+                                value: '${_stats!['totalUsed'] ?? 0}',
+                                label: 'Entrées validées',
+                                trend: 'Total scans',
+                                trendColor: AppColors.statusSuspended,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            // --- Liste des admins récents ---
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                    final admin = recentAdmins[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _AdminTile(admin: admin, compact: true),
-                    );
-                  },
-                  childCount: recentAdmins.length,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- App Bar personnalisée ---
-  Widget _buildAppBar(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authStateProvider);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: Row(
-        children: [
-          // Logo + nom de l'app
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.grid_view_rounded,
-                color: Colors.white, size: 18),
-          ),
-          const SizedBox(width: 10),
-          const Text('Smart-Ticket', style: AppTextStyles.appBarTitle),
-          const Icon(Icons.keyboard_arrow_down_rounded,
-              color: AppColors.textTertiary, size: 20),
-
-          const Spacer(),
-
-          // Cloche de notification
-          Stack(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.border, width: 0.5),
-                ),
-                child: const Icon(Icons.notifications_outlined,
-                    color: AppColors.textSecondary, size: 20),
-              ),
-              // Point rouge de notification
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AppColors.statusSuspended,
-                    shape: BoxShape.circle,
                   ),
-                ),
-              ),
+
+                  // Header admins récents
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Admins récents',
+                              style: AppTextStyles.sectionTitle),
+                          TextButton(
+                            onPressed: () =>
+                                context.go('/super-admin/admins'),
+                            child: const Text('Voir tous',
+                                style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 13)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Liste admins récents
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                            (context, i) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _AdminTile(
+                              admin: _recentAdmins[i], compact: true),
+                        ),
+                        childCount: _recentAdmins.length,
+                      ),
+                    ),
+                  ),
+                ],
             ],
           ),
-
-          const SizedBox(width: 10),
-
-          // Avatar de l'utilisateur connecté
-          AvatarCircle(
-            name: authState.userName ?? 'Super Admin',
-            size: 40,
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// --- Tuile d'admin (ligne dans la liste) ---
-// compact = true  → version courte pour le dashboard
-// compact = false → version complète avec boutons d'action (page Admins)
 class _AdminTile extends StatelessWidget {
   final AdminModel admin;
   final bool compact;
-
   const _AdminTile({required this.admin, this.compact = false});
 
   @override
@@ -253,23 +237,21 @@ class _AdminTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border, width: 0.5),
       ),
-      child: Row(
-        children: [
-          AvatarCircle(name: admin.name, size: 42),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(admin.name, style: AppTextStyles.adminName),
-                const SizedBox(height: 2),
-                Text(admin.subtitle, style: AppTextStyles.adminSubtitle),
-              ],
-            ),
+      child: Row(children: [
+        AvatarCircle(name: admin.name, size: 42),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(admin.name, style: AppTextStyles.adminName),
+              const SizedBox(height: 2),
+              Text(admin.subtitle, style: AppTextStyles.adminSubtitle),
+            ],
           ),
-          StatusBadge(status: admin.status),
-        ],
-      ),
+        ),
+        StatusBadge(status: admin.status),
+      ]),
     );
   }
 }

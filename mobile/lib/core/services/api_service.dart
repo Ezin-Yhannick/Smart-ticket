@@ -9,12 +9,16 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 class ApiService {
-  // Sur émulateur Android 10.0.2.2 remplace localhost
-  // Sur vrai téléphone l'IP locale de ton PC (ex: 192.168.1.X)
-  static const String baseUrl = 'http://10.69.19.70:8080/api';
+  // Sur émulateur Android → 10.0.2.2 remplace localhost
+  // Sur vrai téléphone → l'IP locale de ton PC
+  static const String baseUrl = 'http://10.114.148.206:8080/api';
 
-  // --- Login ---
-  static Future<Map<String, dynamic>> login(String email, String password) async {
+  // ════════════════════════════════════════════════════════
+  // AUTHENTIFICATION
+  // ════════════════════════════════════════════════════════
+
+  static Future<Map<String, dynamic>> login(
+      String email, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
@@ -29,12 +33,14 @@ class ApiService {
     if (response.statusCode == 200) {
       return data; // { token, role, name, email, userId }
     } else {
-      // Le backend renvoie une erreur
-      throw Exception(data['message'] ?? 'Email ou mot de passe incorrect');
+      throw Exception(
+          data['message'] ?? 'Email ou mot de passe incorrect');
     }
   }
 
-  // ── Events ──
+  // ════════════════════════════════════════════════════════
+  // ÉVÉNEMENTS
+  // ════════════════════════════════════════════════════════
 
   // Récupère les événements de l'admin connecté
   static Future<List<dynamic>> getMyEvents(String token) async {
@@ -42,12 +48,26 @@ class ApiService {
       Uri.parse('$baseUrl/events'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',  // JWT obligatoire
+        'Authorization': 'Bearer $token',
       },
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Erreur chargement événements');
   }
+
+  // Récupère TOUS les événements actifs (utilisé par l'Agent)
+  static Future<List<dynamic>> getAllEvents(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/events/all'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Erreur chargement événements');
+  }
+
   // Crée un événement + génère les tickets
   static Future<Map<String, dynamic>> createEvent({
     required String token,
@@ -56,7 +76,7 @@ class ApiService {
     required String date,
     required String location,
     required String description,
-    required List<Map<String, dynamic>> categories, // ✅ remplace ticketQuota
+    required List<Map<String, dynamic>> categories,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/events'),
@@ -70,15 +90,21 @@ class ApiService {
         'date': date,
         'location': location,
         'description': description,
-        'categories': categories, //
+        'categories': categories,
       }),
     );
     final data = jsonDecode(response.body);
     if (response.statusCode == 200) return data;
     throw Exception(data['message'] ?? 'Erreur création événement');
   }
-  // Récupère les tickets d'un événement
-  static Future<List<dynamic>> getTickets(String token, int eventId) async {
+
+  // ════════════════════════════════════════════════════════
+  // TICKETS
+  // ════════════════════════════════════════════════════════
+
+  // Récupère les tickets d'un événement (version int)
+  static Future<List<dynamic>> getTickets(
+      String token, int eventId) async {
     final response = await http.get(
       Uri.parse('$baseUrl/events/$eventId/tickets'),
       headers: {
@@ -90,9 +116,7 @@ class ApiService {
     throw Exception('Erreur chargement tickets');
   }
 
-  // Ajoute ces deux méthodes dans ApiService
-
-// Tickets d'un événement
+  // Récupère les tickets d'un événement (version String)
   static Future<List<dynamic>> getEventTickets(
       String token, String eventId) async {
     final response = await http.get(
@@ -106,7 +130,7 @@ class ApiService {
     throw Exception('Erreur chargement tickets');
   }
 
-// Télécharge le fichier Word et retourne son chemin local
+  // Télécharge les QR codes en fichier Word
   static Future<String> exportTicketsWord(
       String token, String eventId, String filter) async {
     final response = await http.get(
@@ -115,7 +139,6 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      // Sauvegarde le fichier dans le dossier temporaire du téléphone
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/tickets-$eventId.docx');
       await file.writeAsBytes(response.bodyBytes);
@@ -124,31 +147,121 @@ class ApiService {
     throw Exception('Erreur export Word');
   }
 
-  // Scan d'un ticket QR à l'entrée
+  // ════════════════════════════════════════════════════════
+  // SCAN
+  // ════════════════════════════════════════════════════════
+  //
+  // Scan d'un ticket QR à l'entrée de l'événement.
+  // On envoie l'UUID du QR + l'eventId de l'événement en cours.
+  // Le backend vérifie si le ticket existe, s'il est vendu,
+  // et s'il n'a pas déjà été scanné.
+  //
+  // Réponse backend attendue :
+  // {
+  //   "status": "VALID" | "ALREADY_USED" | "INVALID",
+  //   "message": "Accès autorisé" | "Ticket déjà scanné" | "QR inconnu",
+  //   "detail": "..." (optionnel)
+  // }
   static Future<Map<String, dynamic>> scanTicket(
-      String token, String uuid) async {
+      String token,
+      String uuid, {
+        String? eventId, // ID de l'événement sélectionné par l'agent
+      }) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/scan?uuid=${Uri.encodeComponent(uuid)}'),
+      Uri.parse('$baseUrl/scan'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
+      body: jsonEncode({
+        'uuid': uuid,
+        // On envoie l'eventId seulement s'il est disponible
+        if (eventId != null) 'eventId': eventId,
+      }),
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Erreur lors du scan');
   }
 
-  // Récuperer tous les évènements actifs
-  static Future<List<dynamic>> getAllEvents(String token) async {
+  // ════════════════════════════════════════════════════════
+  // SUPER ADMIN
+  // ════════════════════════════════════════════════════════
+
+  // Stats globales de la plateforme
+  static Future<Map<String, dynamic>> getPlatformStats(
+      String token) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/events/all'),
+      Uri.parse('$baseUrl/super-admin/stats'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
-    throw Exception('Erreur chargement événements');
+    throw Exception('Erreur chargement stats plateforme');
   }
 
+  // Liste de tous les admins
+  static Future<List<dynamic>> getAllAdmins(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/super-admin/admins'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Erreur chargement admins');
+  }
+
+  // Créer un nouvel admin
+  static Future<Map<String, dynamic>> createAdmin({
+    required String token,
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/super-admin/admins'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'name': name,
+        'email': email,
+        'password': password,
+      }),
+    );
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['message'] ?? 'Erreur création admin');
+  }
+
+  // Suspendre un admin
+  static Future<void> suspendAdmin(String token, int adminId) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/super-admin/admins/$adminId/suspend'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) throw Exception('Erreur suspension');
+  }
+
+  // Activer un admin
+  static Future<void> activateAdmin(String token, int adminId) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/super-admin/admins/$adminId/activate'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) throw Exception('Erreur activation');
+  }
+
+  // Supprimer un admin
+  static Future<void> deleteAdmin(String token, int adminId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/super-admin/admins/$adminId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) throw Exception('Erreur suppression');
+  }
 }

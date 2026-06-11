@@ -19,6 +19,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../../shared/models/ticket_model.dart';
 import 'agent_shell.dart'; // pour ScanRecord et scanHistoryProvider
+import '../../../shared/widgets/profile_menu.dart';
 
 // ════════════════════════════════════════════════════════
 // ÉCRAN PRINCIPAL

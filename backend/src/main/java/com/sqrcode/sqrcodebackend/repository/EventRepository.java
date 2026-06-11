@@ -9,4 +9,5 @@ import java.util.List;
 public interface EventRepository extends JpaRepository<Event, Long> {
     // Tous les événements d'un admin
     List<Event> findByAdminOrderByCreatedAtDesc(User admin);
+    List<Event> findByAdmin(User Admin);
 }

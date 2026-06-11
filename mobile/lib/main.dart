@@ -17,7 +17,7 @@ void main() {
   // ProviderScope est le "conteneur" de Riverpod
   // Il doit envelopper toute l'application pour que la gestion d'état fonctionne
   runApp(
-    const ProviderScope(
+    const ProviderScope( 
       child: SQR_Code(),
     ),
   );

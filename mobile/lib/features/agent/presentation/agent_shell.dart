@@ -21,6 +21,7 @@ import '../../../shared/models/ticket_model.dart';
 import 'History_Screen.dart';
 import 'scan_screen.dart';
 
+
 // ════════════════════════════════════════════════════════
 // MODÈLE DE DONNÉES — un enregistrement de scan
 // ════════════════════════════════════════════════════════
