@@ -27,8 +27,6 @@ import '../../../shared/models/event_model.dart';
 // ────────────────────────────────────────────
 // Modèle simplifié d'un ticket (pour la démo)
 // ────────────────────────────────────────────
-// En production, ce sera le TicketModel complet
-// récupéré depuis le backend Spring Boot.
 enum TicketStatus { nonVendu, vendu, utilise }
 
 class _Ticket {
@@ -38,7 +36,6 @@ class _Ticket {
   const _Ticket({required this.id, required this.status});
 
   // Crée une copie avec un statut différent
-  // (Flutter est immutable, donc on ne peut pas modifier directement)
   _Ticket withStatus(TicketStatus s) => _Ticket(id: id, status: s);
 }
 
@@ -71,7 +68,6 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
   Future<void> _loadTickets() async {
     setState(() { _isLoading = true; _error = null; });
     try {
-      // Récupère le token — TicketsScreen doit être ConsumerStatefulWidget
       final token = ref.read(authStateProvider).token!;
       final data = await ApiService.getEventTickets(token, widget.event.id);
 
@@ -97,43 +93,56 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
 
   @override
   void dispose() {
-    // Toujours libérer le TabController pour éviter les fuites mémoire
     _tabController.dispose();
     super.dispose();
   }
 
   // ── Helpers : compter et filtrer ──
 
-  // Compte combien de tickets ont un statut donné
   int _count(TicketStatus s) =>
       _tickets.where((t) => t.status == s).length;
 
-  // Retourne uniquement les tickets d'un statut donné
   List<_Ticket> _filtered(TicketStatus s) =>
       _tickets.where((t) => t.status == s).toList();
 
   // ── Actions ──
 
-  // Marque un ticket comme vendu (le marchand a encaissé le cash)
-  void _markAsSold(String ticketId) {
-    setState(() {
-      final i = _tickets.indexWhere((t) => t.id == ticketId);
-      if (i != -1) {
-        _tickets[i] = _tickets[i].withStatus(TicketStatus.vendu);
-      }
-    });
+  // Appelle l'API pour marquer comme vendu et met à jour l'état local
+  Future<void> _markAsSold(String ticketId) async {
+    try {
+      final token = ref.read(authStateProvider).token!;
+      await ApiService.sellTicket(token, ticketId);
 
-    // Petit message de confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Ticket $ticketId → Vendu'),
-        backgroundColor: AppColors.statusActive,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+      // Met à jour localement après confirmation API
+      setState(() {
+        final i = _tickets.indexWhere((t) => t.id == ticketId);
+        if (i != -1) {
+          _tickets[i] = _tickets[i].withStatus(TicketStatus.vendu);
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Ticket vendu ✅'),
+            backgroundColor: AppColors.statusActive,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // Affiche le QR code en plein écran dans un dialog
@@ -147,9 +156,8 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // dialog aussi petit que possible
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Titre
               const Text('QR Code', style: AppTextStyles.sectionTitle),
               const SizedBox(height: 4),
               Text(ticketId,
@@ -157,8 +165,6 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
                   textAlign: TextAlign.center),
               const SizedBox(height: 20),
 
-              // Le QR code affiché sur fond blanc
-              // (le fond DOIT être blanc pour que les lecteurs QR fonctionnent)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -166,8 +172,8 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: QrImageView(
-                  data: ticketId,        // le texte encodé dans le QR
-                  version: QrVersions.auto, // choisit automatiquement la version
+                  data: ticketId,
+                  version: QrVersions.auto,
                   size: 200,
                   backgroundColor: Colors.white,
                 ),
@@ -175,7 +181,6 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
 
               const SizedBox(height: 20),
 
-              // Bouton fermer
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
@@ -190,7 +195,7 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
     );
   }
 
-  // Affiche le menu d'export (bottom sheet qui monte depuis le bas)
+  // Affiche le menu d'export (bottom sheet)
   void _showExportSheet() {
     showModalBottomSheet(
       context: context,
@@ -202,7 +207,6 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Petite barre grise en haut (convention Material)
             Container(
               width: 40, height: 4,
               decoration: BoxDecoration(
@@ -221,7 +225,6 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
             ),
             const SizedBox(height: 24),
 
-            // Option 1 : tous les tickets
             _ExportOption(
               icon: Icons.select_all_rounded,
               label: 'Tous les tickets',
@@ -233,7 +236,6 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
             ),
             const SizedBox(height: 10),
 
-            // Option 2 : seulement les non vendus
             _ExportOption(
               icon: Icons.radio_button_unchecked_rounded,
               label: 'Non vendus seulement',
@@ -249,24 +251,40 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
     );
   }
 
-  // Déclenche l'export (appel API à venir)
+  // Déclenche la vente collective puis l'exportation Word
   Future<void> _doExport(String filter) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Génération du fichier Word...')),
+        const SnackBar(
+            content: Text('Génération et vente des tickets...')),
       );
 
       final token = ref.read(authStateProvider).token!;
+
+      // 1. Marque tous les tickets non vendus comme VENDUS avant export
+      final ticketsToSell = filter == 'non_vendus'
+          ? _tickets.where((t) => t.status == TicketStatus.nonVendu).toList()
+          : _tickets.where((t) => t.status == TicketStatus.nonVendu).toList();
+
+      for (final ticket in ticketsToSell) {
+        await ApiService.sellTicket(token, ticket.id);
+      }
+
+      // 2. Recharge les tickets depuis l'API
+      await _loadTickets();
+
+      // 3. Génère le fichier Word
       final path = await ApiService.exportTicketsWord(
           token, widget.event.id, filter);
 
-      // Ouvre le fichier Word téléchargé
+      // 4. Ouvre le fichier
       await OpenFilex.open(path);
 
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e'),
+          SnackBar(
+              content: Text('Erreur : $e'),
               backgroundColor: Colors.red),
         );
       }
@@ -278,14 +296,11 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // Nom de l'événement dans la barre
         title: Text(
           widget.event.name,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           overflow: TextOverflow.ellipsis,
         ),
-
-        // Bouton export en haut à droite
         actions: [
           TextButton.icon(
             onPressed: _showExportSheet,
@@ -298,8 +313,6 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
                     fontWeight: FontWeight.w600)),
           ),
         ],
-
-        // Les 3 onglets collés sous l'AppBar
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppColors.primary,
@@ -314,30 +327,27 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
           ],
         ),
       ),
-
-      body: Column(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+          : Column(
         children: [
-          // Barre de résumé en haut
           _SummaryBar(tickets: _tickets),
-
-          // Le contenu change selon l'onglet actif
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
-                // Onglet 1 — Non vendus
                 _TicketList(
                   tickets: _filtered(TicketStatus.nonVendu),
-                  onMarkSold: _markAsSold,
+                  onMarkSold: (id) => _markAsSold(id),
                   onShowQR: _showQRDialog,
                 ),
-                // Onglet 2 — Vendus
                 _TicketList(
                   tickets: _filtered(TicketStatus.vendu),
-                  onMarkSold: null, // pas de bouton "marquer vendu" ici
+                  onMarkSold: null,
                   onShowQR: _showQRDialog,
                 ),
-                // Onglet 3 — Utilisés
                 _TicketList(
                   tickets: _filtered(TicketStatus.utilise),
                   onMarkSold: null,
@@ -356,8 +366,6 @@ class _TicketsScreenState extends ConsumerState<TicketsScreen>
 // WIDGETS RÉUTILISABLES
 // ════════════════════════════════════════════════════════
 
-// ── Barre de résumé ──
-// Affiche 4 chiffres clés en haut de l'écran
 class _SummaryBar extends StatelessWidget {
   final List<_Ticket> tickets;
   const _SummaryBar({required this.tickets});
@@ -370,7 +378,6 @@ class _SummaryBar extends StatelessWidget {
     final total = tickets.length;
     final sold = _count(TicketStatus.vendu);
     final used = _count(TicketStatus.utilise);
-    // Taux de vente : combien % des tickets ont été vendus
     final pct = total > 0
         ? '${(sold / total * 100).toStringAsFixed(0)}%'
         : '0%';
@@ -415,10 +422,8 @@ class _StatCell extends StatelessWidget {
   );
 }
 
-// ── Liste de tickets ──
 class _TicketList extends StatelessWidget {
   final List<_Ticket> tickets;
-  // onMarkSold est null pour les onglets "Vendus" et "Utilisés"
   final void Function(String ticketId)? onMarkSold;
   final void Function(String ticketId) onShowQR;
 
@@ -430,7 +435,6 @@ class _TicketList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Écran vide si aucun ticket dans cet onglet
     if (tickets.isEmpty) {
       return Center(
         child: Column(
@@ -463,7 +467,6 @@ class _TicketList extends StatelessWidget {
   }
 }
 
-// ── Tuile d'un ticket ──
 class _TicketTile extends StatelessWidget {
   final _Ticket ticket;
   final VoidCallback? onMarkSold;
@@ -475,7 +478,6 @@ class _TicketTile extends StatelessWidget {
     required this.onShowQR,
   });
 
-  // Couleur selon le statut
   Color get _statusColor {
     switch (ticket.status) {
       case TicketStatus.nonVendu: return AppColors.textTertiary;
@@ -484,7 +486,6 @@ class _TicketTile extends StatelessWidget {
     }
   }
 
-  // Libellé selon le statut
   String get _statusLabel {
     switch (ticket.status) {
       case TicketStatus.nonVendu: return 'Non vendu';
@@ -504,8 +505,6 @@ class _TicketTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // ── Mini QR cliquable ──
-          // L'admin peut cliquer dessus pour voir le QR en grand
           GestureDetector(
             onTap: onShowQR,
             child: Container(
@@ -513,7 +512,7 @@ class _TicketTile extends StatelessWidget {
               height: 52,
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.white, // fond blanc obligatoire pour les QR
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: QrImageView(
@@ -523,15 +522,11 @@ class _TicketTile extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(width: 12),
-
-          // ── Infos du ticket ──
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ID du ticket en police monospace (lisible)
                 Text(
                   ticket.id,
                   style: const TextStyle(
@@ -543,7 +538,6 @@ class _TicketTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 6),
-                // Badge de statut
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
@@ -562,10 +556,7 @@ class _TicketTile extends StatelessWidget {
               ],
             ),
           ),
-
-          // ── Bouton d'action ──
           if (onMarkSold != null)
-          // Bouton "Vendu" visible seulement pour les tickets non vendus
             TextButton(
               onPressed: onMarkSold,
               style: TextButton.styleFrom(
@@ -578,7 +569,6 @@ class _TicketTile extends StatelessWidget {
                       fontSize: 13, fontWeight: FontWeight.w700)),
             )
           else
-          // Bouton zoom pour voir le QR en grand
             IconButton(
               onPressed: onShowQR,
               icon: const Icon(Icons.zoom_in_rounded,
@@ -590,7 +580,6 @@ class _TicketTile extends StatelessWidget {
   }
 }
 
-// ── Option dans le menu d'export ──
 class _ExportOption extends StatelessWidget {
   final IconData icon;
   final String label;

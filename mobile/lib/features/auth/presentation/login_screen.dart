@@ -63,6 +63,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _emailController.text.trim(),
         _passwordController.text,);
 
+        print('TOKEN REÇU : ${data['token']}');
+        print('ROLE REÇU : ${data['role']}');
+
         final role = _parseRole(data['role']);
 
         // Connecte l'utilisateur dans Riverpod

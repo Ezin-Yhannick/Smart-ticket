@@ -82,6 +82,11 @@ class HistoryScreen extends ConsumerWidget {
                         ),
                       ),
                     ),
+                  // Petit espace si le bouton effacer est affiché, pour ne pas coller l'avatar
+                  if (history.isNotEmpty) const SizedBox(width: 8),
+
+                  // 🚀 Intégration du menu Profil !
+                  const ProfileMenu(),
                 ],
               ),
             ),

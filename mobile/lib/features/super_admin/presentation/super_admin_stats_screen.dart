@@ -9,10 +9,7 @@
 //   2. Graphique d'activité mensuelle (barres simples)
 //   3. Classement des meilleurs admins
 //   4. Alertes fraude récentes
-
 part of 'super_admin_shell.dart';
-
-// ── Données de démo ──
 
 class _MonthData {
   final String month;
@@ -20,204 +17,239 @@ class _MonthData {
   const _MonthData(this.month, this.tickets);
 }
 
-class _TopAdmin {
-  final String name;
-  final int events;
-  final double revenue;
-  final int tickets;
-  const _TopAdmin({
-    required this.name,
-    required this.events,
-    required this.revenue,
-    required this.tickets,
-  });
-
-  String get revenueFormatted {
-    if (revenue >= 1000000) {
-      return '${(revenue / 1000000).toStringAsFixed(1)}M FCFA';
-    }
-    return '${(revenue / 1000).toStringAsFixed(0)}K FCFA';
-  }
-}
-
-class _FraudAlert {
-  final String eventName;
-  final String ticketId;
-  final String agentName;
-  final DateTime detectedAt;
-  const _FraudAlert({
-    required this.eventName,
-    required this.ticketId,
-    required this.agentName,
-    required this.detectedAt,
-  });
-
-  String get timeAgo {
-    final diff = DateTime.now().difference(detectedAt);
-    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'Il y a ${diff.inHours}h';
-    return 'Hier';
-  }
-}
-
-// ════════════════════════════════════════════════════════
-// ÉCRAN PRINCIPAL
-// ════════════════════════════════════════════════════════
-class SuperAdminStatsScreen extends StatelessWidget {
+class SuperAdminStatsScreen extends ConsumerStatefulWidget {
   const SuperAdminStatsScreen({super.key});
 
+  @override
+  ConsumerState<SuperAdminStatsScreen> createState() =>
+      _SuperAdminStatsScreenState();
+}
+
+class _SuperAdminStatsScreenState
+    extends ConsumerState<SuperAdminStatsScreen> {
+
+  Map<String, dynamic>? _stats;
+  List<AdminModel> _topAdmins = [];
+  bool _isLoading = true;
+  String? _error;
+
+  // Données mensuelles statiques (pas d'API pour ça pour l'instant)
   static const _monthlyData = [
-    _MonthData('Jan', 120),
-    _MonthData('Fév', 95),
-    _MonthData('Mar', 210),
-    _MonthData('Avr', 180),
-    _MonthData('Mai', 340),
-    _MonthData('Jun', 290),
-    _MonthData('Jul', 420),
-    _MonthData('Aoû', 380),
+    _MonthData('Jan', 120), _MonthData('Fév', 95),
+    _MonthData('Mar', 210), _MonthData('Avr', 180),
+    _MonthData('Mai', 340), _MonthData('Jun', 290),
+    _MonthData('Jul', 420), _MonthData('Aoû', 380),
   ];
 
-  static const _topAdmins = [
-    _TopAdmin(name: 'ASSOUMA Kamal',
-        events: 12, revenue: 1200000, tickets: 847),
-    _TopAdmin(name: 'SONON Jehovas-nis',
-        events: 8, revenue: 890000, tickets: 612),
-    _TopAdmin(name: 'BOCO Melina',
-        events: 5, revenue: 450000, tickets: 320),
-    _TopAdmin(name: 'EZIN Yannick',
-        events: 3, revenue: 220000, tickets: 180),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
-  static final _fraudAlerts = [
-    _FraudAlert(
-      eventName: 'Foire de Cotonou',
-      ticketId: 'QR-UNKNOWN-001',
-      agentName: 'Agent Kouassi',
-      detectedAt: DateTime.now().subtract(const Duration(minutes: 23)),
-    ),
-    _FraudAlert(
-      eventName: 'Concert Urban Vibe',
-      ticketId: 'QR-FAKE-042',
-      agentName: 'Agent Adjobi',
-      detectedAt: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-    _FraudAlert(
-      eventName: 'Foire de Cotonou',
-      ticketId: 'TKT-EVT001-0099',
-      agentName: 'Agent Mensah',
-      detectedAt: DateTime.now().subtract(const Duration(hours: 5)),
-    ),
-  ];
+  Future<void> _loadData() async {
+    setState(() { _isLoading = true; _error = null; });
+    try {
+      final token = ref.read(authStateProvider).token!;
+      final stats  = await ApiService.getPlatformStats(token);
+      final admins = await ApiService.getAllAdmins(token);
+
+      setState(() {
+        _stats = stats;
+        // Tri des admins par nombre d'événements décroissant
+        _topAdmins = admins.map((a) => AdminModel(
+          id: a['id'].toString(),
+          name: a['name'],
+          email: a['email'],
+          status: a['status'] == 'ACTIVE'
+              ? AdminStatus.active
+              : AdminStatus.suspended,
+          eventsCount: a['totalEvents'] ?? 0,
+          ticketsCount: a['totalTickets'] ?? 0,
+          revenue: 0,
+        )).toList()
+          ..sort((a, b) => b.eventsCount.compareTo(a.eventsCount));
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString().replaceAll('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-
-              // Titre
-              const Text('Statistiques', style: AppTextStyles.screenTitle),
-              const SizedBox(height: 4),
-              const Text('Vue globale de la plateforme Smart-Ticket',
-                  style: AppTextStyles.adminSubtitle),
-              const SizedBox(height: 24),
-
-              // ── 1. Résumé global ──
-              const Text('Résumé global', style: AppTextStyles.sectionTitle),
+              const Icon(Icons.wifi_off_rounded,
+                  color: AppColors.textTertiary, size: 48),
               const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: _SummaryCard(
-                  value: '24', label: 'Admins actifs',
-                  icon: Icons.people_outline_rounded,
-                  iconColor: AppColors.iconBlue,
-                  iconBg: AppColors.iconBlueBackground,
-                  trend: '+3 ce mois', positive: true,
-                )),
-                const SizedBox(width: 12),
-                Expanded(child: _SummaryCard(
-                  value: '138', label: 'Événements',
-                  icon: Icons.event_outlined,
-                  iconColor: AppColors.iconGreen,
-                  iconBg: AppColors.iconGreenBackground,
-                  trend: '+12 ce mois', positive: true,
-                )),
-              ]),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: _SummaryCard(
-                  value: '4,2M', label: 'FCFA collectés',
-                  icon: Icons.attach_money_rounded,
-                  iconColor: AppColors.iconOrange,
-                  iconBg: AppColors.iconOrangeBackground,
-                  trend: '+18% ce mois', positive: true,
-                )),
-                const SizedBox(width: 12),
-                Expanded(child: _SummaryCard(
-                  value: '7', label: 'Alertes fraude',
-                  icon: Icons.warning_amber_rounded,
-                  iconColor: AppColors.iconRed,
-                  iconBg: AppColors.iconRedBackground,
-                  trend: 'Cette semaine', positive: false,
-                )),
-              ]),
-              const SizedBox(height: 28),
-
-              // ── 2. Graphique mensuel ──
-              const Text('Activité mensuelle',
-                  style: AppTextStyles.sectionTitle),
-              const SizedBox(height: 4),
-              const Text('Tickets vendus par mois',
-                  style: AppTextStyles.adminSubtitle),
+              Text(_error!, style: AppTextStyles.adminSubtitle),
               const SizedBox(height: 16),
-              _buildBarChart(),
-              const SizedBox(height: 28),
+              ElevatedButton(
+                onPressed: _loadData,
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        )
+            : RefreshIndicator(
+          onRefresh: _loadData,
+          color: AppColors.primary,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Titre
+                const Text('Statistiques',
+                    style: AppTextStyles.screenTitle),
+                const SizedBox(height: 4),
+                const Text('Vue globale de la plateforme',
+                    style: AppTextStyles.adminSubtitle),
+                const SizedBox(height: 24),
 
-              // ── 3. Classement admins ──
-              const Text('Top Administrateurs',
-                  style: AppTextStyles.sectionTitle),
-              const SizedBox(height: 4),
-              const Text('Classés par revenus générés',
-                  style: AppTextStyles.adminSubtitle),
-              const SizedBox(height: 12),
-              ..._topAdmins.asMap().entries.map((e) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _TopAdminTile(rank: e.key + 1, admin: e.value),
-              )),
-              const SizedBox(height: 28),
-
-              // ── 4. Alertes fraude ──
-              Row(children: [
-                const Text('Alertes fraude récentes',
+                // ── 1. Résumé global depuis l'API ──
+                const Text('Résumé global',
                     style: AppTextStyles.sectionTitle),
-                const SizedBox(width: 8),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: _SummaryCard(
+                    value: '${_stats!['activeAdmins'] ?? 0}',
+                    label: 'Admins actifs',
+                    icon: Icons.people_outline_rounded,
+                    iconColor: AppColors.iconBlue,
+                    iconBg: AppColors.iconBlueBackground,
+                    trend: '${_stats!['totalAdmins'] ?? 0} total',
+                    positive: true,
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(child: _SummaryCard(
+                    value: '${_stats!['totalEvents'] ?? 0}',
+                    label: 'Événements',
+                    icon: Icons.event_outlined,
+                    iconColor: AppColors.iconGreen,
+                    iconBg: AppColors.iconGreenBackground,
+                    trend: 'Sur la plateforme',
+                    positive: true,
+                  )),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: _SummaryCard(
+                    value: '${_stats!['totalSold'] ?? 0}',
+                    label: 'Tickets vendus',
+                    icon: Icons.confirmation_number_outlined,
+                    iconColor: AppColors.iconOrange,
+                    iconBg: AppColors.iconOrangeBackground,
+                    trend: '${_stats!['totalTickets'] ?? 0} générés',
+                    positive: true,
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(child: _SummaryCard(
+                    value: '${_stats!['totalUsed'] ?? 0}',
+                    label: 'Entrées validées',
+                    icon: Icons.how_to_reg_outlined,
+                    iconColor: AppColors.iconRed,
+                    iconBg: AppColors.iconRedBackground,
+                    trend: 'Total scans',
+                    positive: true,
+                  )),
+                ]),
+                const SizedBox(height: 12),
+
+                // Suspendus
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppColors.statusSuspendedBackground,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: AppColors.statusSuspended
+                            .withOpacity(0.3),
+                        width: 0.5),
                   ),
-                  child: Text(
-                    '${_fraudAlerts.length}',
-                    style: const TextStyle(
-                      color: AppColors.statusSuspended,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                  child: Row(children: [
+                    Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.statusSuspended
+                            .withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                          Icons.person_off_outlined,
+                          color: AppColors.statusSuspended,
+                          size: 20),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_stats!['suspendedAdmins'] ?? 0}',
+                          style: const TextStyle(
+                              color: AppColors.statusSuspended,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700),
+                        ),
+                        const Text('Admins suspendus',
+                            style: AppTextStyles.caption),
+                      ],
+                    ),
+                  ]),
                 ),
-              ]),
-              const SizedBox(height: 12),
-              ..._fraudAlerts.map((a) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _FraudAlertTile(alert: a),
-              )),
-              const SizedBox(height: 24),
-            ],
+                const SizedBox(height: 28),
+
+                // ── 2. Graphique mensuel (statique) ──
+                const Text('Activité mensuelle',
+                    style: AppTextStyles.sectionTitle),
+                const SizedBox(height: 4),
+                const Text('Tickets vendus par mois',
+                    style: AppTextStyles.adminSubtitle),
+                const SizedBox(height: 16),
+                _buildBarChart(),
+                const SizedBox(height: 28),
+
+                // ── 3. Top admins depuis l'API ──
+                const Text('Top Administrateurs',
+                    style: AppTextStyles.sectionTitle),
+                const SizedBox(height: 4),
+                const Text('Classés par nombre d\'événements',
+                    style: AppTextStyles.adminSubtitle),
+                const SizedBox(height: 12),
+
+                if (_topAdmins.isEmpty)
+                  const Center(
+                    child: Text('Aucun administrateur',
+                        style: AppTextStyles.adminSubtitle),
+                  )
+                else
+                  ..._topAdmins
+                      .take(5) // Top 5
+                      .toList()
+                      .asMap()
+                      .entries
+                      .map((e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _TopAdminTile(
+                      rank: e.key + 1,
+                      admin: e.value,
+                    ),
+                  )),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
@@ -280,21 +312,20 @@ class SuperAdminStatsScreen extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: _monthlyData.map((d) => Text(d.month,
+          children: _monthlyData
+              .map((d) => Text(d.month,
               style: const TextStyle(
                   color: AppColors.textTertiary,
                   fontSize: 10,
-                  fontWeight: FontWeight.w500))).toList(),
+                  fontWeight: FontWeight.w500)))
+              .toList(),
         ),
       ]),
     );
   }
 }
 
-// ════════════════════════════════════════════════════════
-// WIDGETS INTERNES
-// ════════════════════════════════════════════════════════
-
+// ── Carte de stat ──
 class _SummaryCard extends StatelessWidget {
   final String value;
   final String label;
@@ -327,36 +358,49 @@ class _SummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border, width: 0.5),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(
-              color: iconBg, borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, color: iconColor, size: 20),
-        ),
-        const SizedBox(height: 12),
-        Text(value, style: AppTextStyles.statNumber),
-        const SizedBox(height: 2),
-        Text(label, style: AppTextStyles.statLabel),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-              color: trendBg,
-              borderRadius: BorderRadius.circular(20)),
-          child: Text(trend,
-              style: TextStyle(
-                  color: trendColor, fontSize: 10,
-                  fontWeight: FontWeight.w600)),
-        ),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // ✅ évite l'overflow
+        children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(height: 10),
+          Text(value, style: AppTextStyles.statNumber),
+          const SizedBox(height: 2),
+          Text(label,
+              style: AppTextStyles.statLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+                color: trendBg,
+                borderRadius: BorderRadius.circular(20)),
+            child: Text(trend,
+                style: TextStyle(
+                    color: trendColor,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
     );
   }
 }
 
+// ── Top Admin tile ──
 class _TopAdminTile extends StatelessWidget {
   final int rank;
-  final _TopAdmin admin;
+  final AdminModel admin;
   const _TopAdminTile({required this.rank, required this.admin});
 
   Color get _rankColor {
@@ -387,75 +431,28 @@ class _TopAdminTile extends StatelessWidget {
           width: 28,
           child: Text('#$rank',
               style: TextStyle(
-                  color: _rankColor, fontSize: 15,
+                  color: _rankColor,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800)),
         ),
         const SizedBox(width: 10),
         AvatarCircle(name: admin.name, size: 40),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(admin.name, style: AppTextStyles.adminName),
-            const SizedBox(height: 3),
-            Text('${admin.events} événements · ${admin.tickets} tickets',
-                style: AppTextStyles.caption),
-          ]),
-        ),
-        Text(admin.revenueFormatted,
-            style: const TextStyle(
-                color: AppColors.statusActive,
-                fontSize: 13,
-                fontWeight: FontWeight.w700)),
-      ]),
-    );
-  }
-}
-
-class _FraudAlertTile extends StatelessWidget {
-  final _FraudAlert alert;
-  const _FraudAlertTile({required this.alert});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.statusSuspendedBackground,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: AppColors.statusSuspended.withOpacity(0.3),
-            width: 0.5),
-      ),
-      child: Row(children: [
-        Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.statusSuspended.withOpacity(0.2),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.warning_amber_rounded,
-              color: AppColors.statusSuspended, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(alert.eventName,
-                style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 3),
-            Text('ID: ${alert.ticketId} · ${alert.agentName}',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(admin.name, style: AppTextStyles.adminName),
+              const SizedBox(height: 3),
+              Text(
+                '${admin.eventsCount} événements · '
+                    '${admin.ticketsCount} tickets',
                 style: AppTextStyles.caption,
-                overflow: TextOverflow.ellipsis),
-          ]),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(width: 8),
-        Text(alert.timeAgo,
-            style: const TextStyle(
-                color: AppColors.statusSuspended,
-                fontSize: 11,
-                fontWeight: FontWeight.w500)),
+        StatusBadge(status: admin.status),
       ]),
     );
   }

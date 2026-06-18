@@ -19,6 +19,8 @@ public class SuperAdminService {
     private final EventRepository eventRepository;
     private final TicketRepository ticketRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
+    private final WhatsAppService whatsAppService;
 
     // ── Stats globales de la plateforme ──
     public PlatformStatsResponse getPlatformStats() {
@@ -72,13 +74,34 @@ public class SuperAdminService {
         if (userRepository.existsByEmail(req.getEmail())) {
             throw new RuntimeException("Un compte avec cet email existe déjà");
         }
+
+        String rawPassword = req.getPassword();
         User user = new User();
         user.setEmail(req.getEmail());
         user.setName(req.getName());
-        user.setPassword(passwordEncoder.encode(req.getPassword()));
+        user.setPassword(passwordEncoder.encode(rawPassword));
         user.setRole(User.Role.ADMIN);
         user.setStatus(User.Status.ACTIVE);
         user = userRepository.save(user);
+
+        // ← NOUVEAU : email automatique
+        emailService.sendWelcomeEmail(
+                user.getEmail(),
+                user.getName(),
+                rawPassword,
+                "ADMIN"
+        );
+
+        // ← NOUVEAU : WhatsApp automatique
+        if (user.getPhone() != null && !user.getPhone().isBlank()) {
+            whatsAppService.sendWelcomeMessage(
+                    user.getPhone(),
+                    user.getName(),
+                    user.getEmail(),
+                    rawPassword,
+                    "ADMIN"
+            );
+        }
 
         AdminUserResponse r = new AdminUserResponse();
         r.setId(user.getId());

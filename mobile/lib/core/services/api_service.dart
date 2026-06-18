@@ -11,7 +11,7 @@ import 'package:path_provider/path_provider.dart';
 class ApiService {
   // Sur émulateur Android → 10.0.2.2 remplace localhost
   // Sur vrai téléphone → l'IP locale de ton PC
-  static const String baseUrl = 'http://10.114.148.206:8080/api';
+  static const String baseUrl = 'http://127.0.0.1:8080/api';
 
   // ════════════════════════════════════════════════════════
   // AUTHENTIFICATION
@@ -183,6 +183,17 @@ class ApiService {
     throw Exception('Erreur lors du scan');
   }
 
+  // Marque un ticket comme vendu
+  static Future<void> sellTicket(String token, String uuid) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/tickets/$uuid/sell'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Erreur lors de la vente du ticket');
+    }
+  }
+
   // ════════════════════════════════════════════════════════
   // SUPER ADMIN
   // ════════════════════════════════════════════════════════
@@ -263,5 +274,113 @@ class ApiService {
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode != 200) throw Exception('Erreur suppression');
+  }
+  // ════════════════════════════════════════════════════════
+// AGENTS
+// ════════════════════════════════════════════════════════
+
+// Récupère tous les agents de l'admin connecté
+  static Future<List<dynamic>> getMyAgents(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/agents'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Erreur chargement agents');
+  }
+
+// Crée un nouvel agent
+  static Future<Map<String, dynamic>> createAgent({
+    required String token,
+    required String name,
+    required String email,
+    required String password,
+    required String phone,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/agents'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'name': name,
+        'email': email,
+        'password': password,
+        'phone': phone,
+      }),
+    );
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['message'] ?? 'Erreur création agent');
+  }
+
+// Supprime un agent
+  static Future<void> deleteAgent(String token, int agentId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/agents/$agentId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) throw Exception('Erreur suppression');
+  }
+
+  // ── Assignation des agents ──
+
+// Récupère les agents assignés à un événement
+  static Future<List<dynamic>> getEventAgents(
+      String token, String eventId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/admin/events/$eventId/agents'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Erreur chargement agents assignés');
+  }
+
+// Assigne des agents à un événement
+  static Future<void> assignAgents(
+      String token, String eventId, List<int> agentIds) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/admin/events/$eventId/assign'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'agentIds': agentIds}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Erreur assignation agents');
+    }
+  }
+
+// Désassigne un agent d'un événement
+  static Future<void> unassignAgent(
+      String token, String eventId, int agentId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/admin/events/$eventId/agents/$agentId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Erreur désassignation');
+    }
+  }
+
+// Récupère les événements de l'agent connecté
+  static Future<List<dynamic>> getAgentMyEvents(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/agent/my-events'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    throw Exception('Erreur chargement événements agent');
   }
 }

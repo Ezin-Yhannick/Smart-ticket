@@ -1,10 +1,9 @@
 // lib/features/super_admin/presentation/super_admin_dashboard_screen.dart
 //
 // Le tableau de bord du Super-Admin (Écran 1 de tes maquettes).
-// Contient : 4 cartes de stats + liste des admins récents.
+// Contient : 4 cartes de stats adaptatives + liste des admins récents.
 //
 // Note : ce fichier utilise "part of" pour être lié au shell.
-// C'est une façon de découper un gros fichier en plusieurs morceaux.
 part of 'super_admin_shell.dart';
 
 class SuperAdminDashboardScreen extends ConsumerStatefulWidget {
@@ -33,6 +32,15 @@ class _SuperAdminDashboardScreenState
     setState(() { _isLoading = true; _error = null; });
     try {
       final token = ref.read(authStateProvider).token!;
+
+      if (token == null) {
+        setState(() {
+          _error = 'Token null — non connecté';
+          _isLoading = false;
+        });
+        return;
+      }
+
       final stats  = await ApiService.getPlatformStats(token);
       final admins = await ApiService.getAllAdmins(token);
 
@@ -68,7 +76,7 @@ class _SuperAdminDashboardScreenState
           color: AppColors.primary,
           child: CustomScrollView(
             slivers: [
-              // AppBar
+              // ── AppBar supérieure ──
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -116,7 +124,7 @@ class _SuperAdminDashboardScreenState
                   ),
                 )
               else ...[
-                  // Stats
+                  // ── Section Vue d'ensemble (Stats) ──
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                     sliver: SliverToBoxAdapter(
@@ -126,51 +134,53 @@ class _SuperAdminDashboardScreenState
                           const Text('Vue d\'ensemble',
                               style: AppTextStyles.sectionTitle),
                           const SizedBox(height: 16),
-                          GridView.count(
-                            crossAxisCount: 2,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.85,
+
+                          // 🔄 Remplacement du GridView par des Rows flexibles
+                          Column(
                             children: [
-                              StatCard(
-                                icon: Icons.people_outline_rounded,
-                                iconColor: AppColors.iconBlue,
-                                iconBackground: AppColors.iconBlueBackground,
-                                value: '${_stats!['activeAdmins'] ?? 0}',
-                                label: 'Admins actifs',
-                                trend: '${_stats!['totalAdmins'] ?? 0} total',
-                                trendColor: AppColors.statusActive,
-                              ),
-                              StatCard(
-                                icon: Icons.calendar_month_outlined,
-                                iconColor: AppColors.iconGreen,
-                                iconBackground: AppColors.iconGreenBackground,
-                                value: '${_stats!['totalEvents'] ?? 0}',
-                                label: 'Événements',
-                                trend: 'Sur la plateforme',
-                                trendColor: AppColors.statusActive,
-                              ),
-                              StatCard(
-                                icon: Icons.confirmation_number_outlined,
-                                iconColor: AppColors.iconOrange,
-                                iconBackground: AppColors.iconOrangeBackground,
-                                value: '${_stats!['totalSold'] ?? 0}',
-                                label: 'Tickets vendus',
-                                trend:
-                                '${_stats!['totalTickets'] ?? 0} générés',
-                                trendColor: AppColors.statusPending,
-                              ),
-                              StatCard(
-                                icon: Icons.how_to_reg_outlined,
-                                iconColor: AppColors.iconRed,
-                                iconBackground: AppColors.iconRedBackground,
-                                value: '${_stats!['totalUsed'] ?? 0}',
-                                label: 'Entrées validées',
-                                trend: 'Total scans',
-                                trendColor: AppColors.statusSuspended,
-                              ),
+                              Row(children: [
+                                Expanded(child: StatCard(
+                                  icon: Icons.people_outline_rounded,
+                                  iconColor: AppColors.iconBlue,
+                                  iconBackground: AppColors.iconBlueBackground,
+                                  value: '${_stats!['activeAdmins'] ?? 0}',
+                                  label: 'Admins actifs',
+                                  trend: '${_stats!['totalAdmins'] ?? 0} total',
+                                  trendColor: AppColors.statusActive,
+                                )),
+                                const SizedBox(width: 12),
+                                Expanded(child: StatCard(
+                                  icon: Icons.calendar_month_outlined,
+                                  iconColor: AppColors.iconGreen,
+                                  iconBackground: AppColors.iconGreenBackground,
+                                  value: '${_stats!['totalEvents'] ?? 0}',
+                                  label: 'Événements',
+                                  trend: 'Sur la plateforme',
+                                  trendColor: AppColors.statusActive,
+                                )),
+                              ]),
+                              const SizedBox(height: 12),
+                              Row(children: [
+                                Expanded(child: StatCard(
+                                  icon: Icons.confirmation_number_outlined,
+                                  iconColor: AppColors.iconOrange,
+                                  iconBackground: AppColors.iconOrangeBackground,
+                                  value: '${_stats!['totalSold'] ?? 0}',
+                                  label: 'Tickets vendus',
+                                  trend: '${_stats!['totalTickets'] ?? 0} générés',
+                                  trendColor: AppColors.statusPending,
+                                )),
+                                const SizedBox(width: 12),
+                                Expanded(child: StatCard(
+                                  icon: Icons.how_to_reg_outlined,
+                                  iconColor: AppColors.iconRed,
+                                  iconBackground: AppColors.iconRedBackground,
+                                  value: '${_stats!['totalUsed'] ?? 0}',
+                                  label: 'Entrées validées',
+                                  trend: 'Total scans',
+                                  trendColor: AppColors.statusSuspended,
+                                )),
+                              ]),
                             ],
                           ),
                         ],
@@ -178,7 +188,7 @@ class _SuperAdminDashboardScreenState
                     ),
                   ),
 
-                  // Header admins récents
+                  // ── En-tête Admins Récents ──
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
@@ -200,7 +210,7 @@ class _SuperAdminDashboardScreenState
                     ),
                   ),
 
-                  // Liste admins récents
+                  // ── Liste des Admins Récents ──
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                     sliver: SliverList(

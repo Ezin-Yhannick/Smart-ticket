@@ -24,6 +24,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../../shared/models/ticket_model.dart';
 import 'agent_shell.dart';
+import '../../../shared/widgets/profile_menu.dart';
 
 // ════════════════════════════════════════════════════════
 // MODÈLE — résultat d'un scan
@@ -105,7 +106,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   Future<void> _loadEvents() async {
     try {
       final token = ref.read(authStateProvider).token!;
-      final data = await ApiService.getAllEvents(token);
+      final data = await ApiService.getAgentMyEvents(token);
 
       setState(() {
         _assignedEvents = data.map((e) => {
@@ -256,7 +257,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     );
   }
 
-  // ── Barre du haut : sélecteur événement + torche ──
+  // ── Barre du haut : sélecteur événement + torche + profil ──
   Widget _buildTopBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -275,7 +276,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                   border: Border.all(color: Colors.white24, width: 0.5),
                 ),
                 child: Row(children: [
-                  // Spinner si chargement en cours
                   if (_loadingEvents)
                     const SizedBox(
                       width: 16, height: 16,
@@ -326,6 +326,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                   color: Colors.white, size: 20),
             ),
           ),
+          const SizedBox(width: 10),
+
+          // 🚀 Intégration du menu Profil pour l'Agent sur le Scan !
+          const ProfileMenu(),
         ],
       ),
     );

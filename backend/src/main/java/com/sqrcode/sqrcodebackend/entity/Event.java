@@ -6,7 +6,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "events")
@@ -51,6 +53,19 @@ public class Event {
 
     @Column(updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+
+    // Les agents assignés à cet événement
+// ManyToMany car :
+//   - un événement peut avoir plusieurs agents
+//   - un agent peut être assigné à plusieurs événements
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "event_agents", // table de liaison créée automatiquement
+            joinColumns = @JoinColumn(name = "event_id"),
+            inverseJoinColumns = @JoinColumn(name = "agent_id")
+    )
+    private Set<User> agents = new HashSet<>();
 
     public enum EventStatus {
         ACTIVE, ARCHIVED, CLOSED

@@ -30,7 +30,7 @@ class ProfileMenu extends ConsumerWidget {
           ref.read(authStateProvider.notifier).logout();
           if (context.mounted) context.go('/login');
         } else if (value == 'profile') {
-          _showProfileSheet(context, auth);
+          context.push('/profile');
         }
       },
       itemBuilder: (_) => [
@@ -126,136 +126,6 @@ class ProfileMenu extends ConsumerWidget {
     );
   }
 
-  // Feuille de profil détaillé
-  void _showProfileSheet(BuildContext context, AuthState auth) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Barre
-            Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Avatar grand format
-            CircleAvatar(
-              radius: 36,
-              backgroundColor: AppColors.primary,
-              child: Text(
-                _initials(auth.userName ?? 'U'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Nom
-            Text(
-              auth.userName ?? 'Utilisateur',
-              style: AppTextStyles.screenTitle,
-            ),
-            const SizedBox(height: 4),
-
-            // Email
-            Text(
-              auth.userEmail ?? '',
-              style: AppTextStyles.adminSubtitle,
-            ),
-            const SizedBox(height: 12),
-
-            // Badge rôle
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(
-                color: _roleColor(auth.role).withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                _roleLabel(auth.role),
-                style: TextStyle(
-                  color: _roleColor(auth.role),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Infos
-            _InfoTile(
-              icon: Icons.badge_outlined,
-              label: 'Identifiant',
-              value: auth.userId ?? '-',
-            ),
-            const SizedBox(height: 12),
-            _InfoTile(
-              icon: Icons.mail_outline_rounded,
-              label: 'Email',
-              value: auth.userEmail ?? '-',
-            ),
-            const SizedBox(height: 12),
-            _InfoTile(
-              icon: Icons.security_rounded,
-              label: 'Rôle',
-              value: _roleLabel(auth.role),
-            ),
-            const SizedBox(height: 32),
-
-            // Bouton déconnexion
-            Consumer(
-              builder: (context, ref, _) => SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    ref.read(authStateProvider.notifier).logout();
-                    context.go('/login');
-                  },
-                  icon: const Icon(
-                    Icons.logout_rounded,
-                    color: AppColors.statusSuspended,
-                    size: 18,
-                  ),
-                  label: const Text(
-                    'Se déconnecter',
-                    style: TextStyle(
-                      color: AppColors.statusSuspended,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                        color: AppColors.statusSuspended, width: 0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   String _initials(String name) {
     final parts = name.trim().split(' ');
     if (parts.length >= 2) {
@@ -308,51 +178,6 @@ class _AvatarTrigger extends StatelessWidget {
           fontSize: 13,
           fontWeight: FontWeight.w700,
         ),
-      ),
-    );
-  }
-}
-
-// Tuile d'info dans le profil
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.textSecondary, size: 18),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11)),
-              const SizedBox(height: 2),
-              Text(value,
-                  style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ],
       ),
     );
   }

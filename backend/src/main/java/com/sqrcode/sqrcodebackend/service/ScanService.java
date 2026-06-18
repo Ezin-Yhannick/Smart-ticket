@@ -22,7 +22,7 @@ public class ScanService {
     private final UserRepository userRepository;
 
     @Transactional
-    public ScanResponse scan(String uuid, String agentEmail) {
+    public ScanResponse scan(String uuid, String agentEmail, String eventId) {
 
         // 1. Cherche le ticket par UUID
         Optional<Ticket> ticketOpt = ticketRepository.findByUuid(uuid);
@@ -38,6 +38,19 @@ public class ScanService {
         }
 
         Ticket ticket = ticketOpt.get();
+
+        // ← NOUVEAU : vérifie que le ticket appartient bien
+        // à l'événement sélectionné par l'agent
+        if (eventId != null &&
+                !ticket.getEvent().getId().toString().equals(eventId)) {
+            return new ScanResponse(
+                    "INVALID",
+                    "Mauvais événement",
+                    "Ce ticket appartient à \"" +
+                            ticket.getEvent().getName() + "\"",
+                    uuid
+            );
+        }
 
         // 3. Ticket déjà utilisé → doublon
         if (ticket.getStatus() == Ticket.TicketStatus.UTILISE) {

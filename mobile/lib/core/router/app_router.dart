@@ -23,6 +23,9 @@ import '../../features/admin/presentation/admin_shell.dart';
 import '../../features/agent/presentation/agent_shell.dart';
 import '../../shared/models/event_model.dart';
 import '../providers/auth_provider.dart';
+import '../../features/super_admin/presentation/create_admin_screen.dart';
+import '../../shared/presentation/profile_page.dart';
+import '../../features/admin/presentation/assign_agents_screen.dart';
 
 // Le Provider qui expose le router à toute l'application
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -97,6 +100,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/super-admin/settings',
             builder: (context, state) => const SuperAdminSettingsPage(),
           ),
+          GoRoute(
+            path: '/super-admin/admins/create',
+            builder: (context, state) => const CreateAdminScreen(),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfilePage(),
+          ),
         ],
       ),
 
@@ -126,7 +137,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               final event = state.extra as EventModel;
               return TicketsScreen(event: event);
             }
-          )
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfilePage(),
+          ),
+          GoRoute(
+            path: '/admin/agents',
+            builder: (context, state) => const AdminAgentsPage(),
+          ),
+          GoRoute(
+            path: '/admin/events/:eventId/assign',
+            builder: (context, state) {
+              final event = state.extra as EventModel;
+              return AssignAgentsScreen(event: event);
+            },
+          ),
         ],
       ),
 
@@ -141,6 +167,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/agent/history',
             builder: (context, state) => const AgentHistoryPage(),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfilePage(),
           ),
         ],
       ),

@@ -27,6 +27,9 @@ public class User {
     @Column(nullable = false)
     private String name;
 
+    @Column
+    private String phone;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
@@ -35,15 +38,19 @@ public class User {
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
 
+    // Un agent est créé par un Admin
+    // Un Admin est créé par le Super-Admin (null)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id")
+    private User createdBy;
+
     @Column(updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
-
 
 
     public enum Role {
         SUPER_ADMIN,
         ADMIN,
-        MARCHAND,
         AGENT
     }
 
