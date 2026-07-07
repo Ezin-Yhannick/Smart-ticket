@@ -32,6 +32,9 @@ public class EmailService {
     @Value("${app.mail.from}")
     private String fromEmail;
 
+    @Value("${app.download.url}")
+    private String downloadUrl;
+
     // ── Envoie l'email de bienvenue avec les identifiants ──
     //
     // @Async : l'email est envoyé en arrière-plan
@@ -51,6 +54,7 @@ public class EmailService {
             context.setVariable("email", toEmail);
             context.setVariable("password", password);
             context.setVariable("role", role);
+            context.setVariable("downloadUrl", downloadUrl);
 
             // 2. Génère le HTML à partir du template
             String htmlContent = templateEngine.process(

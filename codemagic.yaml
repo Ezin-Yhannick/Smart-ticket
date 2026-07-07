@@ -1,0 +1,22 @@
+workflows:
+  smart-ticket-build:
+    name: Smart Ticket Build# On ne met pas de working_directory car le pubspec.yaml est à la racine
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+    scripts:
+      - name: Get dependencies
+        script: flutter pub get
+      - name: Build APK (Android)
+        script: |
+          # On indique le chemin relatif depuis la racine
+          flutter build apk --release --target mobile/lib/main.dart
+      - name: Build IPA (iOS)
+        script: |
+          # Pour iOS, on force aussi le chemin du main
+          flutter build ipa --release --no-codesign --target mobile/lib/main.dart
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+      - build/ios/ipa/*.ipa

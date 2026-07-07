@@ -1,6 +1,7 @@
 package com.sqrcode.sqrcodebackend.controller;
 
 import com.sqrcode.sqrcodebackend.dto.AuthResponse;
+import com.sqrcode.sqrcodebackend.dto.ChangePasswordRequest;
 import com.sqrcode.sqrcodebackend.dto.LoginRequest;
 import com.sqrcode.sqrcodebackend.dto.ProfileUpdateRequest;
 import com.sqrcode.sqrcodebackend.service.AuthService;
@@ -30,6 +31,14 @@ public class AuthController {
             @AuthenticationPrincipal String email,
             @Valid @RequestBody ProfileUpdateRequest request) {
         authService.updateProfile(email, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/change-password")
+    public ResponseEntity<Void> changePassword(
+            @AuthenticationPrincipal String email,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(email, request);
         return ResponseEntity.ok().build();
     }
 

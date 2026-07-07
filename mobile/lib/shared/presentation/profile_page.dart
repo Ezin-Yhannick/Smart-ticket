@@ -181,7 +181,7 @@ class ProfilePage extends ConsumerWidget {
                     _ActionRow(
                       icon: Icons.lock_outline_rounded,
                       label: 'Changer le mot de passe',
-                      onTap: () => _showComingSoon(context),
+                      onTap: () => _showChangePasswordDialog(context, ref, auth),
                     ),
                     const Divider(height: 1, indent: 52),
                     _ActionRow(
@@ -402,6 +402,116 @@ class ProfilePage extends ConsumerWidget {
               child: isSaving 
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context, WidgetRef ref, AuthState auth) {
+    final oldPasswordCtrl = TextEditingController();
+    final newPasswordCtrl = TextEditingController();
+    final confirmPasswordCtrl = TextEditingController();
+    bool isSaving = false;
+    bool obscureOld = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Changer le mot de passe'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: oldPasswordCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Ancien mot de passe',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureOld ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => obscureOld = !obscureOld),
+                    ),
+                  ),
+                  obscureText: obscureOld,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: newPasswordCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Nouveau mot de passe',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => obscureNew = !obscureNew),
+                    ),
+                  ),
+                  obscureText: obscureNew,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: confirmPasswordCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Confirmer le mot de passe',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => obscureConfirm = !obscureConfirm),
+                    ),
+                  ),
+                  obscureText: obscureConfirm,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving ? null : () async {
+                if (newPasswordCtrl.text != confirmPasswordCtrl.text) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Les mots de passe ne correspondent pas'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                if (newPasswordCtrl.text.length < 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Le mot de passe doit faire au moins 6 caractères'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+
+                setState(() => isSaving = true);
+                try {
+                  await ApiService.changePassword(
+                    token: auth.token!,
+                    oldPassword: oldPasswordCtrl.text,
+                    newPassword: newPasswordCtrl.text,
+                  );
+                  if (context.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Mot de passe mis à jour avec succès'), backgroundColor: Colors.green),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erreur: ${e.toString().replaceAll('Exception: ', '')}'), backgroundColor: Colors.red),
+                    );
+                  }
+                } finally {
+                  setState(() => isSaving = false);
+                }
+              },
+              child: isSaving 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Mettre à jour'),
             ),
           ],
         ),

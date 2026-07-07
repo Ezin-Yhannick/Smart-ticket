@@ -11,9 +11,17 @@ import 'package:path_provider/path_provider.dart';
 
 class ApiService {
   // Détection automatique : localhost pour le Web, 10.0.2.2 pour l'émulateur Android
+  // Pour tester sur téléphone réel avec ngrok :
+  // 1. Lancez ngrok : ngrok http 8080
+  // 2. Copiez l'URL https fournie par ngrok ci-dessous
+  static const String _ngrokUrl = 'https://revivable-alienable-triangle.ngrok-free.dev/api';
+  
+  // Passez à 'true' pour utiliser ngrok (APK sur téléphone), 'false' pour l'émulateur
+  static const bool _useNgrok = true;
+
   static const String baseUrl = kIsWeb 
       ? 'http://localhost:8080/api' 
-      : 'http://10.0.2.2:8080/api';
+      : (_useNgrok ? _ngrokUrl : 'http://10.0.2.2:8080/api');
 
   // ════════════════════════════════════════════════════════
   // AUTHENTIFICATION
@@ -63,6 +71,28 @@ class ApiService {
     final data = jsonDecode(response.body);
     if (response.statusCode == 200) return data;
     throw Exception(data['message'] ?? 'Erreur mise à jour profil');
+  }
+
+  static Future<void> changePassword({
+    required String token,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/auth/change-password'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'oldPassword': oldPassword,
+        'newPassword': newPassword,
+      }),
+    );
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['message'] ?? 'Erreur changement de mot de passe');
+    }
   }
 
   // ════════════════════════════════════════════════════════

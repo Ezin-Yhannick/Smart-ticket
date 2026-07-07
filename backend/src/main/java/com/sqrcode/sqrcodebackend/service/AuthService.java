@@ -1,6 +1,7 @@
 package com.sqrcode.sqrcodebackend.service;
 
 import com.sqrcode.sqrcodebackend.dto.AuthResponse;
+import com.sqrcode.sqrcodebackend.dto.ChangePasswordRequest;
 import com.sqrcode.sqrcodebackend.dto.LoginRequest;
 import com.sqrcode.sqrcodebackend.dto.ProfileUpdateRequest;
 import com.sqrcode.sqrcodebackend.entity.User;
@@ -53,6 +54,19 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
         user.setName(request.getName());
         user.setPhone(request.getPhone());
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new RuntimeException("L'ancien mot de passe est incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
     }
 }

@@ -187,13 +187,25 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     try {
       final token = ref.read(authStateProvider).token!;
 
-      // On envoie l'UUID + l'ID de l'événement sélectionné
-      // Le backend sait ainsi à quel événement appartient ce scan
+      // On vérifie d'abord si c'est une vente ou une activation
+      // Si l'URL contient "sell" ou si on est en mode "Marchand" (à implémenter)
+      // Pour le MVP, si le ticket n'est pas encore vendu, on propose de l'activer.
+      
       final data = await ApiService.scanTicket(
         token,
         qrValue,
-        eventId: _selectedEventId, // ← l'ID réel depuis la BDD
+        eventId: _selectedEventId,
       );
+
+      // Si le backend dit "NOT_SOLD", on affiche une interface de vente
+      if (data['status'] == 'NOT_SOLD') {
+         return ScanResultData(
+          status: ScanStatus.dejaScanne, // On réutilise DejaScanne (Orange) pour "A vendre"
+          ticketId: qrValue,
+          message: 'Ticket non vendu',
+          detail: 'Voulez-vous activer ce ticket physique ?',
+        );
+      }
 
       ScanStatus status;
       switch (data['status']) {
@@ -214,13 +226,34 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         detail: data['detail'],
       );
     } catch (e) {
-      // Erreur réseau → fraude par sécurité
       return ScanResultData(
         status: ScanStatus.fraude,
         ticketId: qrValue,
         message: 'Erreur réseau',
         detail: 'Impossible de vérifier le ticket',
       );
+    }
+  }
+
+  void _sellTicket(String uuid) async {
+    try {
+      final token = ref.read(authStateProvider).token!;
+      await ApiService.sellTicket(token, uuid);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ticket activé avec succès !'), backgroundColor: Colors.green),
+        );
+        setState(() {
+          _isScanning = true;
+          _lastResult = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -392,8 +425,24 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                 fontFamily: 'monospace'),
           ),
           const SizedBox(height: 10),
-          const Text('Prochain scan dans 3 secondes...',
-              style: TextStyle(color: Colors.white38, fontSize: 12)),
+          if (result.message == 'Ticket non vendu')
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: ElevatedButton.icon(
+                onPressed: () => _sellTicket(result.ticketId),
+                icon: const Icon(Icons.shopping_cart_checkout),
+                label: const Text('ACTIVER (VENTE PHYSIQUE)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            )
+          else
+            const Text('Prochain scan dans 3 secondes...',
+                style: TextStyle(color: Colors.white38, fontSize: 12)),
         ]),
       ),
     );
