@@ -5,13 +5,15 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 class ApiService {
-  // Sur émulateur Android → 10.0.2.2 remplace localhost
-  // Sur vrai téléphone → l'IP locale de ton PC
-  static const String baseUrl = 'http://127.0.0.1:8080/api';
+  // Détection automatique : localhost pour le Web, 10.0.2.2 pour l'émulateur Android
+  static const String baseUrl = kIsWeb 
+      ? 'http://localhost:8080/api' 
+      : 'http://10.0.2.2:8080/api';
 
   // ════════════════════════════════════════════════════════
   // AUTHENTIFICATION
@@ -31,11 +33,36 @@ class ApiService {
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
-      return data; // { token, role, name, email, userId }
+      return data; // { token, role, name, email, phone, userId }
     } else {
       throw Exception(
           data['message'] ?? 'Email ou mot de passe incorrect');
     }
+  }
+
+  // ════════════════════════════════════════════════════════
+  // PROFIL
+  // ════════════════════════════════════════════════════════
+
+  static Future<Map<String, dynamic>> updateProfile({
+    required String token,
+    required String name,
+    required String phone,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/auth/profile'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'name': name,
+        'phone': phone,
+      }),
+    );
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) return data;
+    throw Exception(data['message'] ?? 'Erreur mise à jour profil');
   }
 
   // ════════════════════════════════════════════════════════
@@ -231,6 +258,9 @@ class ApiService {
     required String name,
     required String email,
     required String password,
+    required String phone,
+    List<String>? allowedTypes,
+    int? maxTickets,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/super-admin/admins'),
@@ -242,10 +272,13 @@ class ApiService {
         'name': name,
         'email': email,
         'password': password,
+        'phone': phone,
+        'allowedTypes': allowedTypes,
+        'maxTickets': maxTickets,
       }),
     );
     final data = jsonDecode(response.body);
-    if (response.statusCode == 200) return data;
+    if (response.statusCode == 200 || response.statusCode == 201) return data;
     throw Exception(data['message'] ?? 'Erreur création admin');
   }
 

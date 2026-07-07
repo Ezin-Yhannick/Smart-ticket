@@ -80,6 +80,7 @@ public class SuperAdminService {
         user.setEmail(req.getEmail());
         user.setName(req.getName());
         user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setPhone(req.getPhone());
         user.setRole(User.Role.ADMIN);
         user.setStatus(User.Status.ACTIVE);
         user = userRepository.save(user);

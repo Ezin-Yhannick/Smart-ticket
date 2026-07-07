@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'core/providers/settings_provider.dart'; // Import ajouté
 
 void main() {
   // S'assure que Flutter est bien initialisé avant de démarrer
@@ -33,6 +34,8 @@ class SQR_Code extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // On récupère le router configuré dans app_router.dart
     final router = ref.watch(appRouterProvider);
+    // On écoute les réglages (thème et langue)
+    final settings = ref.watch(settingsProvider);
 
     return MaterialApp.router(
       // Le nom de l'app (affiché dans le switcher d'applications du téléphone)
@@ -41,7 +44,8 @@ class SQR_Code extends ConsumerWidget {
       // On applique notre thème dark personnalisé
       theme: AppTheme.lightTheme,      // mode clair
       darkTheme: AppTheme.darkTheme,   // mode sombre
-      themeMode: ThemeMode.system,     // suit automatiquement le téléphone
+      themeMode: settings.themeMode,   // Dynamique !
+      locale: settings.locale,         // Dynamique !
 
       // Configuration du router (gestion de la navigation)
       routerConfig: router,

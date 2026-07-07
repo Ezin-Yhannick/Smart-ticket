@@ -2,12 +2,14 @@ package com.sqrcode.sqrcodebackend.service;
 
 import com.sqrcode.sqrcodebackend.dto.AuthResponse;
 import com.sqrcode.sqrcodebackend.dto.LoginRequest;
+import com.sqrcode.sqrcodebackend.dto.ProfileUpdateRequest;
 import com.sqrcode.sqrcodebackend.entity.User;
 import com.sqrcode.sqrcodebackend.repository.UserRepository;
 import com.sqrcode.sqrcodebackend.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -40,7 +42,17 @@ public class AuthService {
                 user.getRole().name(),
                 user.getName(),
                 user.getEmail(),
+                user.getPhone(),
                 user.getId()
         );
+    }
+
+    @Transactional
+    public void updateProfile(String email, ProfileUpdateRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        user.setName(request.getName());
+        user.setPhone(request.getPhone());
+        userRepository.save(user);
     }
 }

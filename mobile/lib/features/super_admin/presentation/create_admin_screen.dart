@@ -24,6 +24,7 @@ class _CreateAdminScreenState
   final _emailCtrl    = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _maxTicketsCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
 
   bool _obscurePassword = true;
   final Set<EventType> _allowedTypes = {};
@@ -35,11 +36,23 @@ class _CreateAdminScreenState
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _maxTicketsCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    print(">>> BOUTON APPUYÉ");
+    if (!_formKey.currentState!.validate()){
+      print(">>> FORMULAIRE INVALIDE");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez remplir tous les champs'),
+          backgroundColor: AppColors.statusSuspended,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (_allowedTypes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -55,11 +68,17 @@ class _CreateAdminScreenState
 
     try {
       final token = ref.read(authStateProvider).token!;
+      final typesList = _allowedTypes.map((e) => e.value).toList();
+      final maxTickets = int.tryParse(_maxTicketsCtrl.text);
+
       await ApiService.createAdmin(
         token: token,
         name: _nameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
         password: _passwordCtrl.text,
+        phone: _phoneCtrl.text.trim(),
+        allowedTypes: typesList,
+        maxTickets: maxTickets,
       );
 
       if (mounted) {
@@ -123,7 +142,7 @@ class _CreateAdminScreenState
                 style: const TextStyle(color: AppColors.textPrimary),
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
-                  hintText: 'Ex: ASSOUMA Kamal',
+                  hintText: 'Ex: ASSOU Bien',
                   prefixIcon: Icon(Icons.person_outline_rounded,
                       color: AppColors.textTertiary, size: 20),
                 ),
@@ -142,7 +161,7 @@ class _CreateAdminScreenState
                 autocorrect: false,
                 style: const TextStyle(color: AppColors.textPrimary),
                 decoration: const InputDecoration(
-                  hintText: 'Ex: k.assouma@epac.bj',
+                  hintText: 'Ex: ka@epac.bj',
                   prefixIcon: Icon(Icons.mail_outline_rounded,
                       color: AppColors.textTertiary, size: 20),
                 ),
@@ -153,6 +172,19 @@ class _CreateAdminScreenState
                   }
                   return null;
                 },
+              ),
+              const SizedBox(height: 24),
+
+              _FieldLabel('Numéro WhatsApp'),
+              TextFormField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  hintText: 'Ex: +229 90... ',
+                  prefixIcon: Icon(Icons.phone_android_rounded, color: AppColors.textTertiary, size: 20),
+                ),
+                validator: (v) => (v == null || v.isEmpty) ? 'Champ requis' : null,
               ),
               const SizedBox(height: 24),
 

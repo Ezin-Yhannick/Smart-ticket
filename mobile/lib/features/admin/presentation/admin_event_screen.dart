@@ -67,8 +67,9 @@ class _AdminEventsScreenState extends ConsumerState<AdminEventsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
         child: Column(
           children: [
             const _AdminAppBar(userName: 'Admin'),

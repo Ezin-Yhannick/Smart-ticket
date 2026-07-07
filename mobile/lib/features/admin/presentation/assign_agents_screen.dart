@@ -16,6 +16,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../../shared/widgets/avatar_circle.dart';
 import '../../../shared/models/event_model.dart';
+import 'package:go_router/go_router.dart';
 
 class AssignAgentsScreen extends ConsumerStatefulWidget {
   final EventModel event;
@@ -129,7 +130,7 @@ class _AssignAgentsScreenState extends ConsumerState<AssignAgentsScreen> {
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10)),
         ));
-        Navigator.pop(context);
+        context.pop();
       }
     } catch (e) {
       if (mounted) {
@@ -164,7 +165,7 @@ class _AssignAgentsScreenState extends ConsumerState<AssignAgentsScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
       ),
 

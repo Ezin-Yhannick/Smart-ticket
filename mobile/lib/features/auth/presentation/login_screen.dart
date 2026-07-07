@@ -58,28 +58,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-
-        final data = await ApiService.login(
+      final data = await ApiService.login(
         _emailController.text.trim(),
-        _passwordController.text,);
+        _passwordController.text,
+      );
 
-        print('TOKEN REÇU : ${data['token']}');
-        print('ROLE REÇU : ${data['role']}');
+      print('DEBUG LOGIN DATA : $data');
 
-        final role = _parseRole(data['role']);
+      final role = _parseRole(data['role'] ?? '');
 
-        // Connecte l'utilisateur dans Riverpod
-        ref.read(authStateProvider.notifier).login(
-          token: data['token'],
-          role: role,
-          userId: data['userId'].toString(),
-          userName: data['name'],
-          userEmail: data['email'],
-        );
-
-    } catch (e) {
+      // On s'assure que les valeurs ne sont pas nulles avant de les passer
+      ref.read(authStateProvider.notifier).login(
+            token: data['token'] ?? '',
+            role: role,
+            userId: (data['userId'] ?? data['id'] ?? '').toString(),
+            userName: data['name'] ?? 'Utilisateur',
+            userEmail: data['email'] ?? '',
+            userPhone: data['phone'] ?? '',
+          );
+    } catch (e, stack) {
+      print('ERREUR POST-LOGIN : $e');
+      print('STACKTRACE : $stack');
       setState(() {
-        _errorMessage = 'Email ou mot de passe incorrect.';
+        _errorMessage = 'Erreur système : ${e.toString()}';
       });
     } finally {
       if (mounted) {
@@ -129,7 +130,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
-                        Icons.grid_view_rounded,
+                        Icons.confirmation_number_rounded, // Nouveau Logo : Ticket
                         color: Colors.white,
                         size: 26,
                       ),

@@ -68,8 +68,9 @@ class _AdminStatsScreenState extends ConsumerState<AdminStatsScreen> {
     final totalSold  = _events.fold(0, (s, e) => s + e.ticketsSold);
     final totalUsed  = _events.fold(0, (s, e) => s + e.ticketsUsed);
 
-    return Scaffold(
-      body: SafeArea(
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _error != null

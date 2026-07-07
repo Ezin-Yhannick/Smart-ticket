@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/settings_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../core/services/api_service.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -11,6 +13,7 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authStateProvider);
+    final settings = ref.watch(settingsProvider);
 
     String initials(String name) {
       final parts = name.trim().split(' ');
@@ -119,8 +122,22 @@ class ProfilePage extends ConsumerWidget {
                 children: [
 
                   // ── Infos du compte ──
-                  const Text('Informations du compte',
-                      style: AppTextStyles.sectionTitle),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Informations du compte',
+                          style: AppTextStyles.sectionTitle),
+                      TextButton.icon(
+                        onPressed: () => _showEditProfileDialog(context, ref, auth),
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Modifier'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   _InfoCard(children: [
                     _InfoRow(
@@ -133,6 +150,12 @@ class ProfilePage extends ConsumerWidget {
                       icon: Icons.mail_outline_rounded,
                       label: 'Email',
                       value: auth.userEmail ?? '-',
+                    ),
+                    const Divider(height: 1, indent: 52),
+                    _InfoRow(
+                      icon: Icons.phone_android_rounded,
+                      label: 'WhatsApp',
+                      value: auth.userPhone ?? '-',
                     ),
                     const Divider(height: 1, indent: 52),
                     _InfoRow(
@@ -219,19 +242,22 @@ class ProfilePage extends ConsumerWidget {
                     _ActionRow(
                       icon: Icons.language_rounded,
                       label: 'Langue',
-                      value: 'Français',
-                      onTap: () => _showComingSoon(context),
+                      value: settings.locale.languageCode == 'fr' ? 'Français' : 'English',
+                      onTap: () {
+                        final newLang = settings.locale.languageCode == 'fr' ? 'en' : 'fr';
+                        ref.read(settingsProvider.notifier).setLocale(newLang);
+                      },
                     ),
                     const Divider(height: 1, indent: 52),
                     _ActionRow(
                       icon: Icons.dark_mode_outlined,
                       label: 'Thème sombre',
                       trailing: Switch(
-                        value: true,
-                        onChanged: (_) => _showComingSoon(context),
+                        value: settings.themeMode == ThemeMode.dark,
+                        onChanged: (isDark) => ref.read(settingsProvider.notifier).toggleTheme(isDark),
                         activeColor: AppColors.primary,
                       ),
-                      onTap: () {},
+                      onTap: () => ref.read(settingsProvider.notifier).toggleTheme(settings.themeMode != ThemeMode.dark),
                     ),
                   ]),
 
@@ -311,6 +337,76 @@ class ProfilePage extends ConsumerWidget {
       content: Text('Fonctionnalité à venir'),
       behavior: SnackBarBehavior.floating,
     ));
+  }
+
+  void _showEditProfileDialog(BuildContext context, WidgetRef ref, AuthState auth) {
+    final nameCtrl = TextEditingController(text: auth.userName);
+    final phoneCtrl = TextEditingController(text: auth.userPhone);
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Modifier le profil'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Nom complet'),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: phoneCtrl,
+                decoration: const InputDecoration(labelText: 'WhatsApp'),
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving ? null : () async {
+                setState(() => isSaving = true);
+                try {
+                  await ApiService.updateProfile(
+                    token: auth.token!,
+                    name: nameCtrl.text.trim(),
+                    phone: phoneCtrl.text.trim(),
+                  );
+                  // Mettre à jour l'état local via Riverpod
+                  ref.read(authStateProvider.notifier).login(
+                    token: auth.token!,
+                    role: auth.role,
+                    userId: auth.userId!,
+                    userName: nameCtrl.text.trim(),
+                    userEmail: auth.userEmail!,
+                    userPhone: phoneCtrl.text.trim(),
+                  );
+                  if (context.mounted) Navigator.pop(ctx);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                } finally {
+                  setState(() => isSaving = false);
+                }
+              },
+              child: isSaving 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _confirmLogout(BuildContext context, WidgetRef ref) {

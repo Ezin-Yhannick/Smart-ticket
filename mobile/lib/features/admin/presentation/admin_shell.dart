@@ -32,6 +32,7 @@ class AdminShell extends StatelessWidget {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/admin/events')) return 1;
     if (location.startsWith('/admin/stats')) return 2;
+    if (location.startsWith('/admin/agents')) return 3;
     return 0;
   }
 
@@ -46,6 +47,7 @@ class AdminShell extends StatelessWidget {
         ),
         child: BottomNavigationBar(
           currentIndex: _getCurrentIndex(context),
+          type: BottomNavigationBarType.fixed,
           onTap: (i) {
             switch (i) {
               case 0: context.go('/admin'); break;
@@ -130,11 +132,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
 
   Future<void> _loadEvents() async {
+    if (!mounted) return;
     setState(() { _isLoading = true; _error = null; });
     try {
       final token = ref.read(authStateProvider).token!;
       final data = await ApiService.getMyEvents(token);
 
+      if (!mounted) return;
       setState(() {
         _events = data.map((e) => EventModel(
           id: e['id'].toString(),
@@ -152,6 +156,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString().replaceAll('Exception: ', '');
         _isLoading = false;
@@ -178,145 +183,153 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final totalUsed    = _events.fold(0, (s, e) => s + e.ticketsUsed);
     final activeEvents = _events.length;
 
-    return Scaffold(
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _loadEvents,
-          color: AppColors.primary,
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: _AdminAppBar(userName: authState.userName ?? 'Admin'),
-              ),
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _loadEvents,
+              color: AppColors.primary,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: _AdminAppBar(userName: authState.userName ?? 'Admin'),
+                  ),
 
-              // ── Stats ──
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Vue d\'ensemble', style: AppTextStyles.sectionTitle),
-                      const SizedBox(height: 16),
-                      GridView.count(
-                        crossAxisCount: 2,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        // 🔄 MODIFICATION : Changé de 0.95 à 0.80 pour donner plus de hauteur verticale aux cartes
-                        childAspectRatio: 0.80,
+                  // ── Stats ──
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          StatCard(
-                            icon: Icons.event_outlined,
-                            iconColor: AppColors.iconBlue,
-                            iconBackground: AppColors.iconBlueBackground,
-                            value: '$activeEvents',
-                            label: 'Événements actifs',
-                          ),
-                          StatCard(
-                            icon: Icons.confirmation_number_outlined,
-                            iconColor: AppColors.iconGreen,
-                            iconBackground: AppColors.iconGreenBackground,
-                            value: '$totalQuota',
-                            label: 'Tickets générés',
-                          ),
-                          StatCard(
-                            icon: Icons.sell_outlined,
-                            iconColor: AppColors.iconOrange,
-                            iconBackground: AppColors.iconOrangeBackground,
-                            value: '$totalSold',
-                            label: 'Tickets vendus',
-                            trend: totalQuota > 0
-                                ? '${(totalSold / totalQuota * 100).toStringAsFixed(1)}%'
-                                : '0%',
-                            trendColor: AppColors.statusActive,
-                          ),
-                          StatCard(
-                            icon: Icons.how_to_reg_outlined,
-                            iconColor: AppColors.iconRed,
-                            iconBackground: AppColors.iconRedBackground,
-                            value: '$totalUsed',
-                            label: 'Entrées validées',
+                          const Text('Vue d\'ensemble', style: AppTextStyles.sectionTitle),
+                          const SizedBox(height: 16),
+                          GridView.count(
+                            crossAxisCount: 2,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.80,
+                            children: [
+                              StatCard(
+                                icon: Icons.event_outlined,
+                                iconColor: AppColors.iconBlue,
+                                iconBackground: AppColors.iconBlueBackground,
+                                value: '$activeEvents',
+                                label: 'Événements actifs',
+                              ),
+                              StatCard(
+                                icon: Icons.confirmation_number_outlined,
+                                iconColor: AppColors.iconGreen,
+                                iconBackground: AppColors.iconGreenBackground,
+                                value: '$totalQuota',
+                                label: 'Tickets générés',
+                              ),
+                              StatCard(
+                                icon: Icons.sell_outlined,
+                                iconColor: AppColors.iconOrange,
+                                iconBackground: AppColors.iconOrangeBackground,
+                                value: '$totalSold',
+                                label: 'Tickets vendus',
+                                trend: totalQuota > 0
+                                    ? '${(totalSold / totalQuota * 100).toStringAsFixed(1)}%'
+                                    : '0%',
+                                trendColor: AppColors.statusActive,
+                              ),
+                              StatCard(
+                                icon: Icons.how_to_reg_outlined,
+                                iconColor: AppColors.iconRed,
+                                iconBackground: AppColors.iconRedBackground,
+                                value: '$totalUsed',
+                                label: 'Entrées validées',
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // ── Header liste événements ──
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Mes événements', style: AppTextStyles.sectionTitle),
-                      TextButton(
-                        onPressed: () => context.go('/admin/events'),
-                        child: const Text('Voir tous',
-                            style: TextStyle(color: AppColors.primary, fontSize: 13)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              if (_isLoading)
-                const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (_error != null)
-                SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.wifi_off_rounded,
-                            color: AppColors.textTertiary, size: 48),
-                        const SizedBox(height: 12),
-                        Text(_error!, style: AppTextStyles.adminSubtitle),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadEvents,
-                          child: const Text('Réessayer'),
-                        ),
-                      ],
                     ),
                   ),
-                )
-              else if (_events.isEmpty)
-                  const SliverFillRemaining(
-                    child: Center(
-                      child: Text('Aucun événement créé pour l\'instant',
-                          style: AppTextStyles.adminSubtitle),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                            (context, i) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _EventTile(event: _events[i]),
-                        ),
-                        childCount: _events.length > 3 ? 3 : _events.length,
+
+                  // ── Header liste événements ──
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Mes événements', style: AppTextStyles.sectionTitle),
+                          TextButton(
+                            onPressed: () => context.go('/admin/events'),
+                            child: const Text('Voir tous',
+                                style: TextStyle(color: AppColors.primary, fontSize: 13)),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-            ],
-          ),
+
+                  if (_isLoading)
+                    const SliverFillRemaining(
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_error != null)
+                    SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.wifi_off_rounded,
+                                color: AppColors.textTertiary, size: 48),
+                            const SizedBox(height: 12),
+                            Text(_error!, style: AppTextStyles.adminSubtitle),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadEvents,
+                              child: const Text('Réessayer'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else if (_events.isEmpty)
+                      const SliverFillRemaining(
+                        child: Center(
+                          child: Text('Aucun événement créé pour l\'instant',
+                              style: AppTextStyles.adminSubtitle),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                                (context, i) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _EventTile(event: _events[i]),
+                            ),
+                            childCount: _events.length > 3 ? 3 : _events.length,
+                          ),
+                        ),
+                      ),
+                ],
+              ),
+            ),
+            Positioned(
+              bottom: 20,
+              right: 20,
+              child: FloatingActionButton.extended(
+                onPressed: () => context.go('/admin/events/create'),
+                backgroundColor: AppColors.primary,
+                icon: const Icon(Icons.add_rounded, color: Colors.white),
+                label: const Text('Nouvel événement',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/admin/events/create'),
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text('Nouvel événement',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -469,7 +482,7 @@ class _EventDetailCard extends StatelessWidget {
               height: 36,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  context.go(
+                  context.push(
                     '/admin/events/${event.id}/tickets',
                     extra: event,
                   );
@@ -485,7 +498,7 @@ class _EventDetailCard extends StatelessWidget {
               height: 36,
               child: OutlinedButton.icon(
                 onPressed: () {
-                  context.go(
+                  context.push(
                     '/admin/events/${event.id}/assign',
                     extra: event,
                   );
@@ -502,7 +515,7 @@ class _EventDetailCard extends StatelessWidget {
               height: 36,
               child: OutlinedButton.icon(
                 onPressed: () {
-                  context.go(
+                  context.push(
                     '/admin/events/${event.id}/tickets',
                     extra: event,
                   );
@@ -554,7 +567,6 @@ class _MiniStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🔄 MODIFICATION : Sécurisation avec Flexible + maxLines + TextOverflow.ellipsis
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,

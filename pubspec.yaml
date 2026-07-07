@@ -10,6 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
 
+  shared_preferences: ^2.2.2
+
   # --- Navigation ---
   # go_router : gère les pages et redirige selon le rôle (Super-Admin, Admin, Agent)
   go_router: ^13.2.0
@@ -51,6 +53,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
 
   # Ces packages aident à générer du code automatiquement (on en aura besoin plus tard)
   build_runner: ^2.4.9

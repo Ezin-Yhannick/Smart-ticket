@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class CreateAdminRequest {
 
@@ -23,5 +25,8 @@ public class CreateAdminRequest {
     // ← NOUVEAU
     @NotBlank(message = "Le numéro WhatsApp est requis")
     private String phone;
+
+    private List<String> allowedTypes;
+    private Integer maxTickets;
 
 }

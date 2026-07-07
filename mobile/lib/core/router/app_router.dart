@@ -9,13 +9,18 @@
 // 2. /splash vérifie si un token JWT est stocké
 //    - Pas de token → /login
 //    - Token présent → on lit le rôle → /super-admin, /admin, ou /agent
+//
+// IMPORTANT : la route /profile est déclarée UNE SEULE FOIS,
+// en dehors de tous les ShellRoute. Avant elle était dupliquée
+// dans les 3 ShellRoute (Super-Admin, Admin, Agent), et GoRouter
+// prenait toujours la première déclarée (Super-Admin) — c'est
+// pour ça que Admin et Agent atterrissaient sur le Shell
+// Super-Admin en cliquant sur "Mon profil".
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// On importera les vrais écrans au fur et à mesure qu'on les crée.
-// Pour l'instant on met des placeholders (pages vides temporaires).
 import '../../features/admin/presentation/tickets_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/super_admin/presentation/super_admin_shell.dart';
@@ -48,8 +53,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
-      // Si connecté et sur /login ou /splash → on redirige vers la bonne interface
-      if (isLoggedIn && (currentPath == '/login' || currentPath == '/splash')) {
+      // Si connecté et sur /login ou /splash → redirige vers la bonne interface
+      if (isLoggedIn &&
+          (currentPath == '/login' || currentPath == '/splash')) {
         switch (userRole) {
           case UserRole.superAdmin:
             return '/super-admin';
@@ -79,6 +85,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
 
+      // --- Profil : route globale unique ---
+      // Hors de tout ShellRoute → pas de bottom nav bar superposée,
+      // et context.pop() ramène toujours vers la page précédente,
+      // peu importe le rôle (Super-Admin, Admin ou Agent).
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfilePage(),
+      ),
+
       // --- Interface Super-Admin ---
       // ShellRoute permet d'avoir une bottom nav bar persistante
       ShellRoute(
@@ -104,10 +119,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/super-admin/admins/create',
             builder: (context, state) => const CreateAdminScreen(),
           ),
-          GoRoute(
-            path: '/profile',
-            builder: (context, state) => const ProfilePage(),
-          ),
         ],
       ),
 
@@ -132,16 +143,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const AdminStatsPage(),
           ),
           GoRoute(
-            path: '/admin/events/:eventId/tickets',
-            builder: (context, state){
-              final event = state.extra as EventModel;
-              return TicketsScreen(event: event);
-            }
-          ),
-          GoRoute(
-            path: '/profile',
-            builder: (context, state) => const ProfilePage(),
-          ),
+              path: '/admin/events/:eventId/tickets',
+              builder: (context, state) {
+                final event = state.extra as EventModel;
+                return TicketsScreen(event: event);
+              }),
           GoRoute(
             path: '/admin/agents',
             builder: (context, state) => const AdminAgentsPage(),
@@ -157,7 +163,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // --- Interface Agent de scan ---
-          ShellRoute(
+      ShellRoute(
         builder: (context, state, child) => AgentShell(child: child),
         routes: [
           GoRoute(
@@ -167,10 +173,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/agent/history',
             builder: (context, state) => const AgentHistoryPage(),
-          ),
-          GoRoute(
-            path: '/profile',
-            builder: (context, state) => const ProfilePage(),
           ),
         ],
       ),

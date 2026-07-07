@@ -37,14 +37,12 @@ public class DataInitializer implements CommandLineRunner {
 
     private void createIfNotExists(String email, String password,
                                    String name, User.Role role) {
-        if (!userRepository.existsByEmail(email)) {
-            User user = new User();
-            user.setEmail(email);
-            user.setPassword(passwordEncoder.encode(password));
-            user.setName(name);
-            user.setRole(role);
-            user.setStatus(User.Status.ACTIVE);
-            userRepository.save(user);
-        }
+        User user = userRepository.findByEmail(email).orElse(new User());
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(password));
+        user.setName(name);
+        user.setRole(role);
+        user.setStatus(User.Status.ACTIVE);
+        userRepository.save(user);
     }
 }

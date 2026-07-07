@@ -29,6 +29,7 @@ class AuthState {
   final String? userId;
   final String? userName;
   final String? userEmail;
+  final String? userPhone;
 
   const AuthState({
     this.isLoggedIn = false,
@@ -37,6 +38,7 @@ class AuthState {
     this.userId,
     this.userName,
     this.userEmail,
+    this.userPhone,
   });
 
   // copyWith permet de créer une copie avec certains champs modifiés
@@ -49,6 +51,7 @@ class AuthState {
     String? userId,
     String? userName,
     String? userEmail,
+    String? userPhone,
   }) {
     return AuthState(
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
@@ -57,6 +60,7 @@ class AuthState {
       userId: userId ?? this.userId,
       userName: userName ?? this.userName,
       userEmail: userEmail ?? this.userEmail,
+      userPhone: userPhone ?? this.userPhone,
     );
   }
 }
@@ -75,6 +79,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String userId,
     required String userName,
     required String userEmail,
+    required String userPhone,
   }) {
     state = state.copyWith(
       isLoggedIn: true,
@@ -83,6 +88,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       userId: userId,
       userName: userName,
       userEmail: userEmail,
+      userPhone: userPhone,
     );
   }
 
