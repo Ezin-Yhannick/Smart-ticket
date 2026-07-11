@@ -1,4 +1,4 @@
-# sqr_code
+# smart-ticket 
 
 A new Flutter project.
 
