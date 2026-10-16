@@ -17,7 +17,7 @@ class ApiService {
   static const String _ngrokUrl = 'https://revivable-alienable-triangle.ngrok-free.dev/api';
   
   // Passez à 'true' pour utiliser ngrok (APK sur téléphone), 'false' pour l'émulateur
-  static const bool _useNgrok = true;
+  static const bool _useNgrok = false;
 
   static const String baseUrl = kIsWeb 
       ? 'http://localhost:8080/api' 
